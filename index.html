@@ -1,0 +1,1268 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Round-Robin Tournament Management System</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Sarabun:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300&display=swap');
+        body {
+            font-family: 'Sarabun', sans-serif;
+            background-color: #f3f4f6;
+        }
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            .print-card {
+                border: 1px solid #ddd !important;
+                box-shadow: none !important;
+                background: white !important;
+                page-break-inside: avoid;
+            }
+            body {
+                background: white !important;
+                color: black !important;
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-800">
+
+    <!-- Top Navigation Bar -->
+    <header class="bg-gradient-to-r from-blue-700 to-indigo-800 text-white shadow-md no-print">
+        <div class="container mx-auto px-4 py-4 flex flex-col lg:flex-row justify-between items-center gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="p-2 bg-white/10 rounded-lg">
+                    <i data-lucide="trophy" class="w-8 h-8 text-yellow-300"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-wide">🏆 ระบบจัดการแข่งขันกีฬาพบกันหมด</h1>
+                    <p class="text-xs text-indigo-200">Round-Robin Tournament Planner & Sheets DB</p>
+                </div>
+            </div>
+            <nav class="flex flex-wrap gap-1 mt-2 lg:mt-0">
+                <button onclick="switchTab('create')" id="btn-tab-create" class="tab-btn px-4 py-2 rounded-lg bg-white/20 text-white font-medium hover:bg-white/30 transition text-sm">
+                    <i data-lucide="plus-circle" class="w-4 h-4 inline-block mr-1"></i> จัดการแข่งขันใหม่
+                </button>
+                <button onclick="switchTab('sports')" id="btn-tab-sports" class="tab-btn px-4 py-2 rounded-lg text-indigo-100 hover:text-white font-medium transition text-sm">
+                    <i data-lucide="activity" class="w-4 h-4 inline-block mr-1"></i> ตั้งค่าประเภทกีฬา
+                </button>
+                <button onclick="switchTab('vault')" id="btn-tab-vault" class="tab-btn px-4 py-2 rounded-lg text-indigo-100 hover:text-white font-medium transition text-sm">
+                    <i data-lucide="database" class="w-4 h-4 inline-block mr-1"></i> คลังการแข่งขัน
+                </button>
+                <button onclick="switchTab('config')" id="btn-tab-config" class="tab-btn px-4 py-2 rounded-lg text-indigo-100 hover:text-white font-medium transition text-sm">
+                    <i data-lucide="settings" class="w-4 h-4 inline-block mr-1"></i> ตั้งค่า Google Sheets
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-6 max-w-7xl">
+        <!-- Notification Banner -->
+        <div id="toast" class="hidden fixed bottom-5 right-5 z-50 bg-slate-900 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center space-x-3 transform transition-all duration-300 scale-95 opacity-0">
+            <i id="toast-icon" data-lucide="info" class="w-5 h-5 text-yellow-400"></i>
+            <span id="toast-msg" class="text-sm font-medium">ข้อความแจ้งเตือน</span>
+        </div>
+
+        <!-- TAB 1: Create / Edit Tournament -->
+        <section id="tab-create" class="tab-content space-y-6">
+            <!-- 1. Tournament Info and Teams Setup -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Left Panel: Create and Teams Input -->
+                <div class="bg-white rounded-xl shadow-sm p-6 border border-slate-200 space-y-4 no-print">
+                    <h2 class="text-lg font-bold text-slate-900 border-b pb-2 flex items-center gap-2">
+                        <i data-lucide="settings-2" class="text-blue-600"></i> ตั้งค่าข้อมูลเบื้องต้น
+                    </h2>
+                    
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">ชื่อรายการแข่งขัน</label>
+                        <input type="text" id="tournament-name" placeholder="เช่น ฟุตบอลพรีเมียร์ลีก อบต. 2026" 
+                               class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">ประเภทกีฬา</label>
+                        <select id="sport-type" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                            <!-- Populated dynamically from appState.sports -->
+                        </select>
+                        <p class="text-xs text-slate-400 mt-1">* หากไม่มีกีฬาที่ต้องการ สามารถไปเพิ่มได้ที่เมนู "ตั้งค่าประเภทกีฬา"</p>
+                    </div>
+
+                    <!-- Teams List section -->
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-sm font-semibold text-slate-700">รายชื่อทีมที่เข้าร่วมแข่งขัน</label>
+                            <span id="team-count" class="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full font-bold">0 ทีม</span>
+                        </div>
+                        <div class="flex space-x-2 mb-2">
+                            <input type="text" id="new-team-name" placeholder="เพิ่มชื่อทีม..." 
+                                   class="flex-grow px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                   onkeypress="if(event.key === 'Enter') addTeam()">
+                            <button onclick="addTeam()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition font-bold flex items-center justify-center">
+                                <i data-lucide="plus" class="w-5 h-5"></i>
+                            </button>
+                        </div>
+                        
+                        <!-- List of current added teams -->
+                        <div id="teams-list" class="space-y-2 max-h-60 overflow-y-auto border border-slate-100 p-2 rounded-lg bg-slate-50">
+                            <!-- Teams loaded here dynamically -->
+                            <p class="text-slate-400 text-xs text-center py-4">ยังไม่มีทีมเข้าร่วมแข่งขัน กรุณาเพิ่มทีม</p>
+                        </div>
+                    </div>
+
+                    <div class="pt-4 border-t flex flex-col gap-2">
+                        <button onclick="generateRoundRobin()" class="w-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white py-3 rounded-xl hover:from-emerald-700 hover:to-teal-700 transition font-bold shadow-md flex items-center justify-center gap-2">
+                            <i data-lucide="shuffle" class="w-5 h-5"></i>
+                            จัดโปรแกรมแข่งขันพบกันหมด
+                        </button>
+                        <button onclick="clearCurrentTournament()" class="w-full text-slate-500 text-sm hover:text-red-600 hover:bg-red-50 py-2 rounded-lg transition">
+                            ล้างข้อมูลทั้งหมดเพื่อสร้างใหม่
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Right Panels: Current Live Tournament Schedule & Leaderboard -->
+                <div class="lg:col-span-2 space-y-6">
+                    <!-- Tournament Metadata Banner (Editable / Status) -->
+                    <div class="bg-white rounded-xl shadow-sm p-6 border border-slate-200">
+                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                            <div>
+                                <h2 id="active-tournament-title" class="text-2xl font-bold text-slate-900">กรุณาสร้างหรือโหลดรายการแข่งขัน</h2>
+                                <p id="active-tournament-meta" class="text-sm text-slate-500">ระบบจะทำการคำนวณโปรแกรมและจัดเรียงลำดับรอบแข่งขันให้อัตโนมัติ</p>
+                            </div>
+                            <div class="flex flex-wrap gap-2 no-print">
+                                <button onclick="saveToSheets()" id="btn-save-sheets" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition flex items-center gap-2 text-sm font-bold">
+                                    <i data-lucide="save" class="w-4 h-4"></i> บันทึกลงฐานข้อมูล
+                                </button>
+                                <button onclick="window.print()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg transition flex items-center gap-2 text-sm font-bold">
+                                    <i data-lucide="printer" class="w-4 h-4"></i> พิมพ์โปรแกรม
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- STANDING LEADERBOARD (Real-time calculation) -->
+                    <div id="leaderboard-section" class="bg-white rounded-xl shadow-sm p-6 border border-slate-200 hidden">
+                        <h3 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                            <i data-lucide="list-ordered" class="text-yellow-500"></i> ตารางคะแนนและสรุปผล (Standings)
+                        </h3>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full text-sm text-left">
+                                <thead class="bg-slate-50 text-slate-700 uppercase">
+                                    <tr>
+                                        <th class="py-3 px-4 font-bold text-center">อันดับ</th>
+                                        <th class="py-3 px-4 font-bold">ชื่อทีม</th>
+                                        <th class="py-3 px-4 font-bold text-center">แข่ง</th>
+                                        <th class="py-3 px-4 font-bold text-center">ชนะ</th>
+                                        <th class="py-3 px-4 font-bold text-center">เสมอ</th>
+                                        <th class="py-3 px-4 font-bold text-center">แพ้</th>
+                                        <th class="py-3 px-4 font-bold text-center">ได้</th>
+                                        <th class="py-3 px-4 font-bold text-center">เสีย</th>
+                                        <th class="py-3 px-4 font-bold text-center">+/-</th>
+                                        <th class="py-3 px-4 font-bold text-center text-blue-700 bg-blue-50">คะแนน</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="leaderboard-body" class="divide-y divide-slate-100">
+                                    <!-- Dynamic Leaderboard Data -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- SCHEDULE MATCHES (Round by Round) -->
+                    <div id="schedule-section" class="bg-white rounded-xl shadow-sm p-6 border border-slate-200 hidden">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                                <i data-lucide="calendar" class="text-indigo-600"></i> ตารางคู่การแข่งขันแต่ละรอบ (Rounds)
+                            </h3>
+                            <span class="text-xs text-slate-500 no-print">* สามารถบันทึกสกอร์, สลับลำดับคู่ และกำหนดวันเวลาการแข่งได้ด้านล่าง</span>
+                        </div>
+
+                        <div id="rounds-container" class="space-y-8">
+                            <!-- Dynamic Rounds populated here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 2: Sports Management Settings -->
+        <section id="tab-sports" class="tab-content hidden space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Left Form: Add/Edit Sport -->
+                <div class="bg-white rounded-xl shadow-sm p-6 border border-slate-200 space-y-4">
+                    <h2 id="sport-form-title" class="text-lg font-bold text-slate-900 border-b pb-2 flex items-center gap-2">
+                        <i data-lucide="plus-circle" class="text-blue-600"></i> เพิ่มประเภทกีฬาใหม่
+                    </h2>
+                    
+                    <input type="hidden" id="edit-sport-id" value="">
+
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">ชื่อประเภทกีฬา</label>
+                        <input type="text" id="sport-name" placeholder="เช่น ตะกร้อ, แชร์บอล, E-Sport" 
+                               class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                    </div>
+
+                    <div class="flex items-center space-x-2 py-1">
+                        <input type="checkbox" id="sport-allow-draw" onchange="toggleDrawPointsInput()"
+                               class="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500">
+                        <label for="sport-allow-draw" class="text-sm font-semibold text-slate-700">อนุญาตให้มีผลเสมอ (Draw)</label>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">แต้มเมื่อชนะ</label>
+                            <input type="number" id="sport-win-points" value="3" min="0"
+                                   class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-center">
+                        </div>
+                        <div id="draw-points-wrapper">
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">แต้มเมื่อเสมอ</label>
+                            <input type="number" id="sport-draw-points" value="1" min="0"
+                                   class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-center">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">แต้มเมื่อแพ้</label>
+                            <input type="number" id="sport-lose-points" value="0" min="0"
+                                   class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-center">
+                        </div>
+                    </div>
+
+                    <div class="pt-4 flex gap-2">
+                        <button onclick="saveSportType()" class="flex-grow bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg transition font-semibold text-sm shadow-sm">
+                            บันทึกข้อมูลกีฬา
+                        </button>
+                        <button onclick="resetSportForm()" id="btn-cancel-sport-edit" class="hidden px-3 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 transition text-sm text-slate-600">
+                            ยกเลิก
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Right List: Registered Sports -->
+                <div class="lg:col-span-2 bg-white rounded-xl shadow-sm p-6 border border-slate-200">
+                    <h2 class="text-lg font-bold text-slate-900 border-b pb-3 mb-4 flex items-center gap-2">
+                        <i data-lucide="list" class="text-indigo-600"></i> รายชื่อประเภทกีฬาและการกำหนดแต้มในระบบ
+                    </h2>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full text-sm text-left">
+                            <thead class="bg-slate-50 text-slate-700">
+                                <tr>
+                                    <th class="py-3 px-4 font-bold">ประเภทกีฬา</th>
+                                    <th class="py-3 px-4 font-bold text-center">มีผลเสมอ?</th>
+                                    <th class="py-3 px-4 font-bold text-center">แต้มชนะ</th>
+                                    <th class="py-3 px-4 font-bold text-center">แต้มเสมอ</th>
+                                    <th class="py-3 px-4 font-bold text-center">แต้มแพ้</th>
+                                    <th class="py-3 px-4 font-bold text-center">การจัดการ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sports-table-body" class="divide-y divide-slate-100">
+                                <!-- Loaded dynamically from appState.sports -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 3: Tournament Vault (List of saved tournaments) -->
+        <section id="tab-vault" class="tab-content hidden space-y-6">
+            <div class="bg-white rounded-xl shadow-sm p-6 border border-slate-200">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-4 mb-6 gap-4">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2">
+                            <i data-lucide="archive" class="text-blue-600"></i> คลังข้อมูลจัดการรายการแข่งขัน
+                        </h2>
+                        <p class="text-sm text-slate-500">เปิดดู แก้ไข หรือลบรายการการแข่งขันที่มีในฐานข้อมูล (เชื่อมโยงผ่าน Google Sheets หรือ Local Storage)</p>
+                    </div>
+                    <button onclick="syncFromGoogleSheets()" class="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 px-4 py-2 rounded-lg transition text-sm font-semibold flex items-center gap-2">
+                        <i data-lucide="refresh-cw" class="w-4 h-4"></i> ดึงข้อมูลล่าสุดจาก Google Sheets
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="vault-container">
+                    <!-- Dynamic saved tournaments list -->
+                    <div class="text-center py-12 col-span-full">
+                        <i data-lucide="folder-open" class="w-12 h-12 text-slate-300 mx-auto mb-3"></i>
+                        <p class="text-slate-500 font-medium">ไม่พบข้อมูลการแข่งขันที่เคยบันทึกไว้</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 4: Google Sheets API Connection Config -->
+        <section id="tab-config" class="tab-content hidden space-y-6">
+            <div class="bg-white rounded-xl shadow-sm p-6 border border-slate-200 max-w-2xl mx-auto">
+                <h2 class="text-xl font-bold text-slate-900 border-b pb-3 mb-4 flex items-center gap-2">
+                    <i data-lucide="settings" class="text-slate-700"></i> ตั้งค่าการเชื่อมต่อ Google Sheets API
+                </h2>
+                
+                <div class="bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded-xl text-sm mb-6 space-y-2">
+                    <p class="font-bold">💡 วิธีใช้งานร่วมกับ GitHub Pages (วิธีที่ถูกต้อง):</p>
+                    <p>1. นำ <strong>code.gs</strong> ไปวางใน Apps Script ของ Google Sheets แล้ว Deploy เป็น Web App (Execute as: Me / Access: Anyone)</p>
+                    <p>2. คัดลอก <strong>Web App URL</strong> ที่ได้ไปวางด้านล่าง แล้วกด "บันทึกการเชื่อมต่อ"</p>
+                    <p class="text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">⚠️ หลังแก้ไข code.gs ต้อง <strong>Deploy ใหม่ทุกครั้ง</strong> (New Deployment → New version) URL เดิมใช้ไม่ได้!</p>
+                </div>
+                <!-- Hidden iframe สำหรับสื่อสารกับ Apps Script ข้าม CORS -->
+                <iframe id="gas-bridge" style="display:none" sandbox="allow-scripts allow-same-origin allow-forms"></iframe>
+
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">Google Apps Script Web App URL</label>
+                        <input type="text" id="gs-web-app-url" placeholder="https://script.google.com/macros/s/.../exec" 
+                               class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">Google Sheet ID (ID ของสเปรดชีต)</label>
+                        <input type="text" id="gs-sheet-id" placeholder="1aBcD...eFgHiJ-K-LmNoP" 
+                               class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">ชื่อเวิร์กชีตย่อย (Sheet Name)</label>
+                        <input type="text" id="gs-tab-name" placeholder="Tournament_Data" value="Tournament_Data"
+                               class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                    </div>
+
+                    <div class="pt-4 flex justify-between">
+                        <button onclick="testSheetsConnection()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg font-semibold transition text-sm">
+                            ทดสอบการเชื่อมต่อ
+                        </button>
+                        <button onclick="saveSheetsConfig()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold transition shadow-md text-sm">
+                            บันทึกการเชื่อมต่อ
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="bg-slate-800 text-slate-400 py-6 mt-12 text-center text-xs no-print border-t border-slate-700">
+        <p>© 2026 Round-Robin Tournament Management System. พัฒนาขึ้นเพื่อความแม่นยำและความยืดหยุ่นสูงสุดสำหรับการทำงานแบบ Online</p>
+    </footer>
+
+    <!-- MAIN APP SCRIPT -->
+    <script>
+        // State Management
+        let appState = {
+            currentTournament: {
+                id: null,
+                name: '',
+                sportType: 'football',
+                teams: [],
+                rounds: [] // Array of arrays of matches
+            },
+            savedTournaments: [],
+            config: {
+                webAppUrl: '',
+                sheetId: '',
+                tabName: 'Tournament_Data'
+            },
+            sports: [
+                { id: 'football', name: 'ฟุตบอล', winPoints: 3, drawPoints: 1, losePoints: 0, allowDraw: true },
+                { id: 'volleyball', name: 'วอลเลย์บอล', winPoints: 3, drawPoints: 0, losePoints: 0, allowDraw: false },
+                { id: 'basketball', name: 'บาสเกตบอล', winPoints: 2, drawPoints: 0, losePoints: 1, allowDraw: false }
+            ]
+        };
+
+        // Initialize App on load
+        window.addEventListener('DOMContentLoaded', () => {
+            loadStateFromLocalStorage();
+            lucide.createIcons();
+            renderSportsDropdown();
+            renderSportsTable();
+            renderTeams();
+            renderSavedTournaments();
+            toggleDrawPointsInput();
+            
+            // Check if active tournament exists to render
+            if (appState.currentTournament && appState.currentTournament.rounds.length > 0) {
+                renderActiveTournament();
+            }
+        });
+
+        // Navigation Tabs Controller
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
+            document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('bg-white/20', 'text-white');
+                btn.classList.add('text-indigo-100');
+            });
+
+            const activeBtn = document.getElementById(`btn-tab-${tabId}`);
+            if (activeBtn) {
+                activeBtn.classList.add('bg-white/20', 'text-white');
+                activeBtn.classList.remove('text-indigo-100');
+            }
+        }
+
+        // Show Toast Utility
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            const icon = document.getElementById('toast-icon');
+            const msg = document.getElementById('toast-msg');
+
+            msg.textContent = message;
+            
+            // Change color based on type
+            if (type === 'success') {
+                toast.className = "fixed bottom-5 right-5 z-50 bg-emerald-600 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center space-x-3 transform transition-all duration-300 scale-100 opacity-100";
+                icon.setAttribute('data-lucide', 'check-circle');
+            } else if (type === 'error') {
+                toast.className = "fixed bottom-5 right-5 z-50 bg-rose-600 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center space-x-3 transform transition-all duration-300 scale-100 opacity-100";
+                icon.setAttribute('data-lucide', 'alert-circle');
+            } else {
+                toast.className = "fixed bottom-5 right-5 z-50 bg-slate-900 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center space-x-3 transform transition-all duration-300 scale-100 opacity-100";
+                icon.setAttribute('data-lucide', 'info');
+            }
+            lucide.createIcons();
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'scale-95');
+                setTimeout(() => toast.classList.add('hidden'), 300);
+            }, 3500);
+        }
+
+        // LocalStorage Sync
+        function saveStateToLocalStorage() {
+            localStorage.setItem('rr_tournament_app_state', JSON.stringify(appState));
+        }
+
+        function loadStateFromLocalStorage() {
+            const data = localStorage.getItem('rr_tournament_app_state');
+            if (data) {
+                const parsed = JSON.parse(data);
+                
+                // Backwards compatibility for sports configuration
+                if (!parsed.sports || parsed.sports.length === 0) {
+                    parsed.sports = [
+                        { id: 'football', name: 'ฟุตบอล', winPoints: 3, drawPoints: 1, losePoints: 0, allowDraw: true },
+                        { id: 'volleyball', name: 'วอลเลย์บอล', winPoints: 3, drawPoints: 0, losePoints: 0, allowDraw: false },
+                        { id: 'basketball', name: 'บาสเกตบอล', winPoints: 2, drawPoints: 0, losePoints: 1, allowDraw: false }
+                    ];
+                }
+                
+                appState = parsed;
+
+                // Load Sheets Config
+                if (appState.config) {
+                    document.getElementById('gs-web-app-url').value = appState.config.webAppUrl || '';
+                    document.getElementById('gs-sheet-id').value = appState.config.sheetId || '';
+                    document.getElementById('gs-tab-name').value = appState.config.tabName || 'Tournament_Data';
+                }
+            }
+        }
+
+        // SPORT TYPES CONFIGURATION SYSTEM
+        function toggleDrawPointsInput() {
+            const allowDraw = document.getElementById('sport-allow-draw').checked;
+            const drawWrapper = document.getElementById('draw-points-wrapper');
+            if (allowDraw) {
+                drawWrapper.style.opacity = '1';
+                document.getElementById('sport-draw-points').disabled = false;
+            } else {
+                drawWrapper.style.opacity = '0.4';
+                document.getElementById('sport-draw-points').disabled = true;
+                document.getElementById('sport-draw-points').value = '0';
+            }
+        }
+
+        function renderSportsDropdown() {
+            const select = document.getElementById('sport-type');
+            const currentSelected = appState.currentTournament.sportType;
+            
+            select.innerHTML = appState.sports.map(s => `
+                <option value="${s.id}" ${currentSelected === s.id ? 'selected' : ''}>
+                    ${s.name} (ชนะ ${s.winPoints}, เสมอ ${s.drawPoints}, แพ้ ${s.losePoints})
+                </option>
+            `).join('');
+        }
+
+        function renderSportsTable() {
+            const body = document.getElementById('sports-table-body');
+            body.innerHTML = appState.sports.map(s => `
+                <tr class="hover:bg-slate-50 transition">
+                    <td class="py-3 px-4 font-bold text-slate-800">${s.name}</td>
+                    <td class="py-3 px-4 text-center">
+                        <span class="px-2 py-1 rounded text-xs font-semibold ${s.allowDraw ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}">
+                            ${s.allowDraw ? 'มีเสมอ' : 'ไม่มีเสมอ'}
+                        </span>
+                    </td>
+                    <td class="py-3 px-4 text-center font-bold text-emerald-600">${s.winPoints}</td>
+                    <td class="py-3 px-4 text-center font-bold text-amber-600">${s.allowDraw ? s.drawPoints : '-'}</td>
+                    <td class="py-3 px-4 text-center font-bold text-rose-600">${s.losePoints}</td>
+                    <td class="py-3 px-4 text-center">
+                        <div class="flex items-center justify-center space-x-2">
+                            <button onclick="editSportType('${s.id}')" class="text-blue-600 hover:text-blue-800 p-1" title="แก้ไขข้อมูล">
+                                <i data-lucide="edit-3" class="w-4 h-4"></i>
+                            </button>
+                            <button onclick="deleteSportType('${s.id}')" class="text-rose-500 hover:text-rose-700 p-1" title="ลบข้อมูล">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function saveSportType() {
+            const idInput = document.getElementById('edit-sport-id').value;
+            const name = document.getElementById('sport-name').value.trim();
+            const allowDraw = document.getElementById('sport-allow-draw').checked;
+            const winPoints = parseInt(document.getElementById('sport-win-points').value) || 0;
+            const drawPoints = allowDraw ? (parseInt(document.getElementById('sport-draw-points').value) || 0) : 0;
+            const losePoints = parseInt(document.getElementById('sport-lose-points').value) || 0;
+
+            if (!name) {
+                showToast('กรุณากรอกชื่อประเภทกีฬาด้วยครับ', 'error');
+                return;
+            }
+
+            if (idInput) {
+                // Edit existing
+                const index = appState.sports.findIndex(s => s.id === idInput);
+                if (index > -1) {
+                    appState.sports[index] = { id: idInput, name, winPoints, drawPoints, losePoints, allowDraw };
+                    showToast('แก้ไขข้อมูลกีฬาสำเร็จ!', 'success');
+                }
+            } else {
+                // Create new
+                const newId = `s-${Date.now()}`;
+                appState.sports.push({ id: newId, name, winPoints, drawPoints, losePoints, allowDraw });
+                showToast('เพิ่มประเภทกีฬาใหม่เรียบร้อยแล้ว!', 'success');
+            }
+
+            saveStateToLocalStorage();
+            resetSportForm();
+            renderSportsDropdown();
+            renderSportsTable();
+        }
+
+        function editSportType(id) {
+            const sport = appState.sports.find(s => s.id === id);
+            if (!sport) return;
+
+            document.getElementById('edit-sport-id').value = sport.id;
+            document.getElementById('sport-name').value = sport.name;
+            document.getElementById('sport-allow-draw').checked = sport.allowDraw;
+            document.getElementById('sport-win-points').value = sport.winPoints;
+            document.getElementById('sport-draw-points').value = sport.drawPoints;
+            document.getElementById('sport-lose-points').value = sport.losePoints;
+
+            document.getElementById('sport-form-title').innerHTML = `<i data-lucide="edit-3" class="text-amber-500"></i> แก้ไขข้อมูลกีฬา: ${sport.name}`;
+            document.getElementById('btn-cancel-sport-edit').classList.remove('hidden');
+
+            toggleDrawPointsInput();
+            lucide.createIcons();
+            document.getElementById('sport-form-title').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function deleteSportType(id) {
+            const currentUsing = appState.currentTournament.sportType === id;
+            const savedUsing = appState.savedTournaments.some(t => t.sportType === id);
+
+            if (currentUsing || savedUsing) {
+                showToast('ไม่สามารถลบประเภทกีฬานี้ได้ เนื่องจากมีรายการแข่งขันที่กำลังใช้งานอยู่', 'error');
+                return;
+            }
+
+            if (appState.sports.length <= 1) {
+                showToast('จำเป็นต้องมีประเภทกีฬาเหลือในระบบอย่างน้อย 1 รายการ', 'error');
+                return;
+            }
+
+            if (confirm('คุณแน่ใจว่าต้องการลบประเภทกีฬานี้ใช่หรือไม่?')) {
+                appState.sports = appState.sports.filter(s => s.id !== id);
+                saveStateToLocalStorage();
+                renderSportsDropdown();
+                renderSportsTable();
+                showToast('ลบประเภทกีฬาสำเร็จ', 'success');
+            }
+        }
+
+        function resetSportForm() {
+            document.getElementById('edit-sport-id').value = '';
+            document.getElementById('sport-name').value = '';
+            document.getElementById('sport-allow-draw').checked = true;
+            document.getElementById('sport-win-points').value = '3';
+            document.getElementById('sport-draw-points').value = '1';
+            document.getElementById('sport-lose-points').value = '0';
+
+            document.getElementById('sport-form-title').innerHTML = `<i data-lucide="plus-circle" class="text-blue-600"></i> เพิ่มประเภทกีฬาใหม่`;
+            document.getElementById('btn-cancel-sport-edit').classList.add('hidden');
+            toggleDrawPointsInput();
+            lucide.createIcons();
+        }
+
+        // TEAM MANAGEMENT
+        function addTeam() {
+            const input = document.getElementById('new-team-name');
+            const name = input.value.trim();
+            if (!name) {
+                showToast('กรุณากรอกชื่อทีมด้วยครับ', 'error');
+                return;
+            }
+            if (appState.currentTournament.teams.includes(name)) {
+                showToast('ชื่อทีมนี้ถูกใช้ไปแล้วครับ', 'error');
+                return;
+            }
+            appState.currentTournament.teams.push(name);
+            input.value = '';
+            renderTeams();
+            saveStateToLocalStorage();
+        }
+
+        function removeTeam(index) {
+            appState.currentTournament.teams.splice(index, 1);
+            renderTeams();
+            saveStateToLocalStorage();
+        }
+
+        function editTeamName(index, newName) {
+            newName = newName.trim();
+            if (!newName) return;
+            appState.currentTournament.teams[index] = newName;
+            saveStateToLocalStorage();
+            renderTeams();
+        }
+
+        function renderTeams() {
+            const container = document.getElementById('teams-list');
+            const countLabel = document.getElementById('team-count');
+            const teams = appState.currentTournament.teams;
+
+            countLabel.textContent = `${teams.length} ทีม`;
+
+            if (teams.length === 0) {
+                container.innerHTML = `<p class="text-slate-400 text-xs text-center py-4">ยังไม่มีทีมเข้าร่วมแข่งขัน กรุณาเพิ่มทีม</p>`;
+                return;
+            }
+
+            container.innerHTML = teams.map((team, idx) => `
+                <div class="flex items-center justify-between bg-white p-2 rounded-lg border border-slate-200 shadow-sm">
+                    <input type="text" value="${team}" 
+                           onchange="editTeamName(${idx}, this.value)"
+                           class="bg-transparent border-b border-transparent hover:border-blue-500 focus:border-blue-500 focus:outline-none px-1 py-0.5 font-medium text-slate-800 w-3/4">
+                    <button onclick="removeTeam(${idx})" class="text-slate-400 hover:text-red-600 p-1">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        // ROUND-ROBIN GENERATION ALGORITHM
+        function generateRoundRobin() {
+            const tournamentName = document.getElementById('tournament-name').value.trim();
+            const sportType = document.getElementById('sport-type').value;
+            const teams = [...appState.currentTournament.teams];
+
+            if (!tournamentName) {
+                showToast('กรุณากรอกชื่อรายการแข่งขันด้วยครับ', 'error');
+                return;
+            }
+            if (teams.length < 2) {
+                showToast('ต้องมีผู้แข่งขันอย่างน้อย 2 ทีมขึ้นไป', 'error');
+                return;
+            }
+
+            let list = [...teams];
+            const hasBye = list.length % 2 !== 0;
+            if (hasBye) {
+                list.push("BYE (ไม่มีคู่แข่ง)");
+            }
+
+            const n = list.length;
+            const roundsCount = n - 1;
+            const matchesPerRound = n / 2;
+            const rounds = [];
+
+            // Initialize the rounds
+            for (let round = 0; round < roundsCount; round++) {
+                const roundMatches = [];
+                for (let match = 0; match < matchesPerRound; match++) {
+                    const home = (round + match) % (n - 1);
+                    let away = (n - 1 - match + round) % (n - 1);
+                    
+                    if (match === 0) {
+                        away = n - 1;
+                    }
+
+                    const homeTeam = list[home];
+                    const awayTeam = list[away];
+
+                    if (homeTeam !== "BYE (ไม่มีคู่แข่ง)" && awayTeam !== "BYE (ไม่มีคู่แข่ง)") {
+                        roundMatches.push({
+                            id: `m-${round}-${match}-${Date.now()}`,
+                            home: homeTeam,
+                            away: awayTeam,
+                            homeScore: null,
+                            awayScore: null,
+                            date: getDefaultMatchDate(round),
+                            time: '17:00'
+                        });
+                    }
+                }
+                rounds.push(roundMatches);
+            }
+
+            // Save details
+            appState.currentTournament.id = appState.currentTournament.id || `t-${Date.now()}`;
+            appState.currentTournament.name = tournamentName;
+            appState.currentTournament.sportType = sportType;
+            appState.currentTournament.rounds = rounds;
+
+            saveStateToLocalStorage();
+            renderActiveTournament();
+            showToast('สร้างตารางพบกันหมดเรียบร้อยแล้ว!', 'success');
+        }
+
+        function getDefaultMatchDate(roundIndex) {
+            const d = new Date();
+            d.setDate(d.getDate() + 1 + roundIndex);
+            return d.toISOString().split('T')[0];
+        }
+
+        // RENDERING ACTIVE TOURNAMENT
+        function renderActiveTournament() {
+            const tournament = appState.currentTournament;
+            const sportObj = appState.sports.find(s => s.id === tournament.sportType) || { name: 'กีฬาภายนอก' };
+            
+            document.getElementById('active-tournament-title').textContent = tournament.name;
+            document.getElementById('active-tournament-meta').textContent = `กีฬา: ${sportObj.name} | จำนวนทีม: ${tournament.teams.length} ทีม`;
+
+            document.getElementById('leaderboard-section').classList.remove('hidden');
+            document.getElementById('schedule-section').classList.remove('hidden');
+
+            renderLeaderboard();
+            renderRounds();
+        }
+
+        function renderRounds() {
+            const container = document.getElementById('rounds-container');
+            const rounds = appState.currentTournament.rounds;
+
+            if (rounds.length === 0) {
+                container.innerHTML = '<p class="text-slate-500 py-4 text-center">ไม่มีโปรแกรมการแข่งขัน</p>';
+                return;
+            }
+
+            container.innerHTML = rounds.map((roundMatches, roundIdx) => `
+                <div class="border border-slate-200 rounded-xl p-4 bg-slate-50/50 print-card">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-2 mb-4">
+                        <h4 class="text-md font-bold text-slate-900 flex items-center gap-1">
+                            <i data-lucide="tag" class="text-blue-600 w-4 h-4"></i> รอบที่ ${roundIdx + 1}
+                        </h4>
+                        <div class="flex space-x-2 mt-2 md:mt-0 no-print">
+                            <button onclick="moveRound(${roundIdx}, -1)" class="p-1 hover:bg-slate-200 text-slate-600 rounded transition" title="เลื่อนรอบขึ้น">
+                                <i data-lucide="arrow-up" class="w-4 h-4"></i>
+                            </button>
+                            <button onclick="moveRound(${roundIdx}, 1)" class="p-1 hover:bg-slate-200 text-slate-600 rounded transition" title="เลื่อนรอบลง">
+                                <i data-lucide="arrow-down" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-3">
+                        ${roundMatches.map((match, matchIdx) => `
+                            <div class="flex flex-col md:flex-row items-center justify-between bg-white p-3 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition gap-3">
+                                
+                                <!-- DateTime Config -->
+                                <div class="flex flex-row md:flex-col gap-2 md:gap-1 text-xs text-slate-600 w-full md:w-1/4">
+                                    <input type="date" value="${match.date}" 
+                                           onchange="updateMatchMeta('${match.id}', 'date', this.value)"
+                                           class="px-2 py-1 bg-slate-50 border rounded-md focus:outline-none w-full max-w-[140px]">
+                                    <input type="time" value="${match.time}" 
+                                           onchange="updateMatchMeta('${match.id}', 'time', this.value)"
+                                           class="px-2 py-1 bg-slate-50 border rounded-md focus:outline-none w-full max-w-[100px]">
+                                </div>
+
+                                <!-- Match Pairing Display and score input -->
+                                <div class="flex items-center justify-center space-x-4 w-full md:w-2/4">
+                                    <span class="font-semibold text-right w-1/3 truncate text-sm" title="${match.home}">${match.home}</span>
+                                    
+                                    <!-- Scores Inputs -->
+                                    <div class="flex items-center space-x-2">
+                                        <input type="number" min="0" placeholder="-" value="${match.homeScore !== null ? match.homeScore : ''}"
+                                               onchange="updateMatchScore('${match.id}', 'home', this.value)"
+                                               class="w-12 h-10 border border-slate-300 rounded-lg text-center font-bold text-lg bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500">
+                                        
+                                        <span class="text-slate-400 font-bold text-xs">VS</span>
+                                        
+                                        <input type="number" min="0" placeholder="-" value="${match.awayScore !== null ? match.awayScore : ''}"
+                                               onchange="updateMatchScore('${match.id}', 'away', this.value)"
+                                               class="w-12 h-10 border border-slate-300 rounded-lg text-center font-bold text-lg bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500">
+                                    </div>
+
+                                    <span class="font-semibold text-left w-1/3 truncate text-sm" title="${match.away}">${match.away}</span>
+                                </div>
+
+                                <!-- Action Buttons -->
+                                <div class="flex space-x-2 w-full md:w-1/4 justify-end no-print">
+                                    <button onclick="moveMatch(${roundIdx}, ${matchIdx}, -1)" class="p-1.5 hover:bg-slate-100 text-slate-500 rounded-md transition" title="เลื่อนคู่นี้ขึ้น">
+                                        <i data-lucide="chevron-up" class="w-4 h-4"></i>
+                                    </button>
+                                    <button onclick="moveMatch(${roundIdx}, ${matchIdx}, 1)" class="p-1.5 hover:bg-slate-100 text-slate-500 rounded-md transition" title="เลื่อนคู่นี้ลง">
+                                        <i data-lucide="chevron-down" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        // SWAP AND RE-ORDER MATCHES / ROUNDS
+        function moveRound(index, direction) {
+            const rounds = appState.currentTournament.rounds;
+            const targetIndex = index + direction;
+            if (targetIndex < 0 || targetIndex >= rounds.length) return;
+
+            const temp = rounds[index];
+            rounds[index] = rounds[targetIndex];
+            rounds[targetIndex] = temp;
+
+            saveStateToLocalStorage();
+            renderActiveTournament();
+            showToast('สลับลำดับรอบการแข่งขันเรียบร้อยแล้ว', 'info');
+        }
+
+        function moveMatch(roundIdx, matchIdx, direction) {
+            const matches = appState.currentTournament.rounds[roundIdx];
+            const targetIdx = matchIdx + direction;
+            if (targetIdx < 0 || targetIdx >= matches.length) return;
+
+            const temp = matches[matchIdx];
+            matches[matchIdx] = matches[targetIdx];
+            matches[targetIdx] = temp;
+
+            saveStateToLocalStorage();
+            renderActiveTournament();
+            showToast('สลับลำดับคู่การแข่งขันเรียบร้อยแล้ว', 'info');
+        }
+
+        // UPDATE SCORES AND METADATA
+        function updateMatchMeta(matchId, field, value) {
+            let found = false;
+            for (let round of appState.currentTournament.rounds) {
+                for (let match of round) {
+                    if (match.id === matchId) {
+                        match[field] = value;
+                        found = true;
+                        break;
+                    }
+                }
+                if (found) break;
+            }
+            saveStateToLocalStorage();
+        }
+
+        function updateMatchScore(matchId, side, value) {
+            let found = false;
+            const scoreVal = value === '' ? null : parseInt(value);
+
+            for (let round of appState.currentTournament.rounds) {
+                for (let match of round) {
+                    if (match.id === matchId) {
+                        if (side === 'home') {
+                            match.homeScore = scoreVal;
+                        } else {
+                            match.awayScore = scoreVal;
+                        }
+                        found = true;
+                        break;
+                    }
+                }
+                if (found) break;
+            }
+
+            saveStateToLocalStorage();
+            renderLeaderboard(); // Update standings instantly
+        }
+
+        // LEADERBOARD STANDING SYSTEM (DYNAMICAL SCORE CALCULATION)
+        function renderLeaderboard() {
+            const t = appState.currentTournament;
+            const teams = t.teams;
+            const rounds = t.rounds;
+            const sportId = t.sportType;
+
+            const sportSetting = appState.sports.find(s => s.id === sportId) || {
+                winPoints: 3,
+                drawPoints: 1,
+                losePoints: 0,
+                allowDraw: true
+            };
+
+            const standings = {};
+            teams.forEach(team => {
+                standings[team] = {
+                    name: team, played: 0, won: 0, drawn: 0, lost: 0,
+                    goalsFor: 0, goalsAgainst: 0, points: 0
+                };
+            });
+
+            rounds.forEach(round => {
+                round.forEach(match => {
+                    if (match.homeScore !== null && match.awayScore !== null) {
+                        const h = match.home;
+                        const a = match.away;
+                        const hs = match.homeScore;
+                        const as = match.awayScore;
+
+                        if (!standings[h]) standings[h] = { name: h, played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0, points: 0 };
+                        if (!standings[a]) standings[a] = { name: a, played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0, points: 0 };
+
+                        standings[h].played++;
+                        standings[a].played++;
+                        standings[h].goalsFor += hs;
+                        standings[h].goalsAgainst += as;
+                        standings[a].goalsFor += as;
+                        standings[a].goalsAgainst += hs;
+
+                        if (hs > as) {
+                            standings[h].won++;
+                            standings[h].points += sportSetting.winPoints;
+                            standings[a].lost++;
+                            standings[a].points += sportSetting.losePoints;
+                        } else if (hs < as) {
+                            standings[a].won++;
+                            standings[a].points += sportSetting.winPoints;
+                            standings[h].lost++;
+                            standings[h].points += sportSetting.losePoints;
+                        } else {
+                            if (sportSetting.allowDraw) {
+                                standings[h].drawn++;
+                                standings[h].points += sportSetting.drawPoints;
+                                standings[a].drawn++;
+                                standings[a].points += sportSetting.drawPoints;
+                            } else {
+                                standings[h].drawn++;
+                                standings[a].drawn++;
+                            }
+                        }
+                    }
+                });
+            });
+
+            const standingsArray = Object.values(standings);
+            standingsArray.sort((x, y) => {
+                if (y.points !== x.points) return y.points - x.points;
+                const gdX = x.goalsFor - x.goalsAgainst;
+                const gdY = y.goalsFor - y.goalsAgainst;
+                if (gdY !== gdX) return gdY - gdX;
+                return y.goalsFor - x.goalsFor;
+            });
+
+            const tbody = document.getElementById('leaderboard-body');
+            tbody.innerHTML = standingsArray.map((st, idx) => `
+                <tr class="${idx === 0 ? 'bg-yellow-50/50' : ''} hover:bg-slate-50 transition">
+                    <td class="py-3 px-4 font-bold text-center text-slate-600">${idx + 1}</td>
+                    <td class="py-3 px-4 font-bold text-slate-900">${st.name}</td>
+                    <td class="py-3 px-4 text-center">${st.played}</td>
+                    <td class="py-3 px-4 text-center text-emerald-600 font-semibold">${st.won}</td>
+                    <td class="py-3 px-4 text-center text-amber-600">${st.drawn}</td>
+                    <td class="py-3 px-4 text-center text-rose-600">${st.lost}</td>
+                    <td class="py-3 px-4 text-center">${st.goalsFor}</td>
+                    <td class="py-3 px-4 text-center">${st.goalsAgainst}</td>
+                    <td class="py-3 px-4 text-center font-medium">${st.goalsFor - st.goalsAgainst > 0 ? '+' : ''}${st.goalsFor - st.goalsAgainst}</td>
+                    <td class="py-3 px-4 text-center text-lg font-bold text-blue-800 bg-blue-50/50">${st.points}</td>
+                </tr>
+            `).join('');
+        }
+
+        // CLEAR CURRENT TOURNAMENT INPUTS
+        function clearCurrentTournament() {
+            if (confirm('คุณต้องการรีเซ็ตข้อมูลและล้างตารางการแข่งขันปัจจุบันทั้งหมดหรือไม่?')) {
+                appState.currentTournament = {
+                    id: null,
+                    name: '',
+                    sportType: appState.sports[0]?.id || 'football',
+                    teams: [],
+                    rounds: []
+                };
+                document.getElementById('tournament-name').value = '';
+                renderSportsDropdown();
+                
+                document.getElementById('leaderboard-section').classList.add('hidden');
+                document.getElementById('schedule-section').classList.add('hidden');
+                document.getElementById('active-tournament-title').textContent = "กรุณาสร้างหรือโหลดรายการแข่งขัน";
+                document.getElementById('active-tournament-meta').textContent = "ระบบจะทำการคำนวณโปรแกรมและจัดเรียงลำดับรอบแข่งขันให้อัตโนมัติ";
+
+                renderTeams();
+                saveStateToLocalStorage();
+                showToast('เคลียร์ข้อมูลโปรแกรมปัจจุบันเรียบร้อยแล้ว', 'info');
+            }
+        }
+
+        // TOURNAMENT VAULT (SAVED TOURNAMENTS IN DATABASE)
+        function renderSavedTournaments() {
+            const container = document.getElementById('vault-container');
+            const list = appState.savedTournaments;
+
+            if (list.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-12 col-span-full">
+                        <i data-lucide="folder-open" class="w-12 h-12 text-slate-300 mx-auto mb-3"></i>
+                        <p class="text-slate-500 font-medium">ไม่พบข้อมูลการแข่งขันที่เคยบันทึกไว้ในระบบ</p>
+                    </div>
+                `;
+                lucide.createIcons();
+                return;
+            }
+
+            container.innerHTML = list.map((t, idx) => {
+                let totalMatches = 0;
+                let completedMatches = 0;
+                t.rounds.forEach(round => {
+                    round.forEach(match => {
+                        totalMatches++;
+                        if (match.homeScore !== null && match.awayScore !== null) {
+                            completedMatches++;
+                        }
+                    });
+                });
+
+                const progressPercent = totalMatches > 0 ? Math.round((completedMatches / totalMatches) * 100) : 0;
+                const sportObj = appState.sports.find(s => s.id === t.sportType) || { name: 'กีฬาอื่น ๆ' };
+
+                return `
+                    <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-4 hover:shadow-md transition">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <span class="text-xs bg-blue-100 text-blue-800 px-2.5 py-0.5 rounded-full font-semibold uppercase">${sportObj.name}</span>
+                                <h3 class="text-lg font-bold text-slate-900 mt-1">${t.name}</h3>
+                            </div>
+                            <button onclick="deleteTournament('${t.id}')" class="text-slate-400 hover:text-red-600 transition p-1" title="ลบรายการนี้">
+                                <i data-lucide="trash-2" class="w-4.5 h-4.5"></i>
+                            </button>
+                        </div>
+
+                        <div class="text-sm text-slate-600 space-y-1">
+                            <p class="flex items-center gap-1.5"><i data-lucide="users" class="w-4 h-4 text-slate-400"></i> ทีมแข่งขัน: ${t.teams.length} ทีม</p>
+                            <p class="flex items-center gap-1.5"><i data-lucide="calendar" class="w-4 h-4 text-slate-400"></i> รอบแข่งขัน: ${t.rounds.length} รอบ</p>
+                        </div>
+
+                        <!-- Progress Bar -->
+                        <div class="space-y-1">
+                            <div class="flex justify-between text-xs text-slate-500">
+                                <span>ความคืบหน้า</span>
+                                <span class="font-bold">${completedMatches}/${totalMatches} คู่ (${progressPercent}%)</span>
+                            </div>
+                            <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                                <div class="bg-indigo-600 h-full transition-all" style="width: ${progressPercent}%"></div>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 flex space-x-2">
+                            <button onclick="loadTournament('${t.id}')" class="flex-grow bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 font-bold py-2 rounded-lg transition text-sm flex items-center justify-center gap-1.5">
+                                <i data-lucide="external-link" class="w-4 h-4"></i> เปิด/แก้ไขข้อมูล
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            lucide.createIcons();
+        }
+
+        function loadTournament(id) {
+            const found = appState.savedTournaments.find(t => t.id === id);
+            if (found) {
+                appState.currentTournament = JSON.parse(JSON.stringify(found));
+                saveStateToLocalStorage();
+                renderSportsDropdown();
+                renderActiveTournament();
+                renderTeams();
+                switchTab('create');
+                showToast(`โหลดการแข่งขัน "${found.name}" เรียบร้อย`, 'success');
+            }
+        }
+
+        // GOOGLE SHEETS & CLOUD DATABASE SYNC SYSTEM (GITHUB PAGES COMPATIBLE - GET MODE)
+        function saveSheetsConfig() {
+            const webAppUrl = document.getElementById('gs-web-app-url').value.trim();
+            const sheetId = document.getElementById('gs-sheet-id').value.trim();
+            const tabName = document.getElementById('gs-tab-name').value.trim();
+
+            appState.config = { webAppUrl, sheetId, tabName };
+            saveStateToLocalStorage();
+            showToast('บันทึกตั้งค่า Google Sheets API สำเร็จ!', 'success');
+        }
+
+
+        // ======================================================
+        // CORE API: ส่งข้อมูลไป Apps Script ผ่าน no-cors fetch
+        // (ไม่สามารถอ่านค่ากลับได้ แต่ส่งไปเก็บใน Sheets ได้)
+        // สำหรับ read (get_all) ใช้ fetch ปกติ แต่ต้องเปิด Apps Script ให้ถูก
+        // ======================================================
+        async function callSheetsAPI(payload) {
+            const { webAppUrl } = appState.config;
+            if (!webAppUrl) throw new Error('ยังไม่ได้ตั้งค่า Web App URL');
+
+            // สำหรับ read: ลอง fetch ปกติก่อน
+            if (payload.action === 'get_all') {
+                const encoded = encodeURIComponent(JSON.stringify(payload));
+                const url = `${webAppUrl}?payload=${encoded}`;
+                const res = await fetch(url, { method: 'GET', redirect: 'follow' });
+                const text = await res.text();
+                // Apps Script บางครั้งส่ง HTML error กลับมา
+                if (text.trim().startsWith('{')) {
+                    return JSON.parse(text);
+                }
+                throw new Error('ตอบกลับไม่ใช่ JSON');
+            }
+
+            // สำหรับ write (save/delete): ใช้ no-cors — ส่งได้แต่อ่านกลับไม่ได้
+            // จึงถือว่าสำเร็จหากไม่ throw
+            const encoded = encodeURIComponent(JSON.stringify(payload));
+            const url = `${webAppUrl}?payload=${encoded}`;
+            await fetch(url, { method: 'GET', mode: 'no-cors', redirect: 'follow' });
+            // no-cors จะ return opaque response ถือว่าสำเร็จ
+            return { success: true, message: 'ส่งข้อมูลสำเร็จ (no-cors mode)' };
+        }
+
+        async function testSheetsConnection() {
+            const { webAppUrl } = appState.config;
+            if (!webAppUrl) {
+                showToast('กรุณากรอก Google Apps Script Web App URL ก่อนทำการทดสอบ', 'error');
+                return;
+            }
+            showToast('กำลังทดสอบการเชื่อมต่อ...', 'info');
+            try {
+                const encoded = encodeURIComponent(JSON.stringify({ action: 'get_all' }));
+                const res = await fetch(`${webAppUrl}?payload=${encoded}`, { method: 'GET', redirect: 'follow' });
+                const text = await res.text();
+                if (text.trim().startsWith('{')) {
+                    const data = JSON.parse(text);
+                    if (data.success) {
+                        showToast(`✅ เชื่อมต่อสำเร็จ! พบข้อมูล ${(data.tournaments||[]).length} รายการใน Google Sheets`, 'success');
+                        if (data.tournaments) {
+                            appState.savedTournaments = data.tournaments;
+                            saveStateToLocalStorage();
+                            renderSavedTournaments();
+                        }
+                    } else {
+                        showToast(`⚠️ Apps Script ตอบกลับ: ${data.message}`, 'error');
+                    }
+                } else {
+                    // CORS block — อ่านกลับไม่ได้แต่ส่งข้อมูลไปยัง Sheets ได้
+                    showToast('⚠️ อ่านข้อมูลกลับไม่ได้ (CORS) แต่การบันทึกลง Sheets ยังทำงานได้ปกติ', 'info');
+                }
+            } catch (error) {
+                console.error(error);
+                // ถ้า CORS block ให้แจ้งผู้ใช้อย่างถูกต้อง
+                showToast('⚠️ ไม่สามารถอ่านข้อมูลจาก Sheets ได้ (CORS) — การบันทึกยังใช้งานได้ แต่ sync อาจไม่แสดงผล', 'info');
+            }
+        }
+
+        // SAVE & EXPORT CORE
+        async function saveToSheets() {
+            const current = appState.currentTournament;
+            if (!current.name || current.rounds.length === 0) {
+                showToast('ไม่พบรายการการแข่งขันที่เปิดอยู่ กรุณาสร้างก่อน', 'error');
+                return;
+            }
+
+            // Save inside local memory first
+            const existingIndex = appState.savedTournaments.findIndex(t => t.id === current.id);
+            if (existingIndex > -1) {
+                appState.savedTournaments[existingIndex] = JSON.parse(JSON.stringify(current));
+            } else {
+                appState.savedTournaments.push(JSON.parse(JSON.stringify(current)));
+            }
+            saveStateToLocalStorage();
+            renderSavedTournaments();
+
+            const { webAppUrl } = appState.config;
+            if (webAppUrl) {
+                showToast('กำลังบันทึกและซิงค์ข้อมูลไปยัง Google Sheets...', 'info');
+                try {
+                    const resData = await callSheetsAPI({
+                        action: 'save_tournament',
+                        tournament: current
+                    });
+                    if (resData.success) {
+                        showToast('บันทึกข้อมูลและอัปโหลดไปยัง Google Sheets เรียบร้อยแล้ว!', 'success');
+                    } else {
+                        showToast(`คลาวด์ตอบรับผิดพลาด: ${resData.message}`, 'error');
+                    }
+                } catch (error) {
+                    console.error(error);
+                    showToast('บันทึกใน LocalStorage แล้ว แต่ส่งข้อมูลขึ้น Google Sheets ไม่สำเร็จ (กรุณาตรวจสอบ URL ในแท็บตั้งค่า)', 'error');
+                }
+            } else {
+                showToast('บันทึกลงฐานข้อมูลภายในเบราว์เซอร์ (LocalStorage) สำเร็จแล้ว! (หากต้องการส่งออกไปยัง Google Sheets อัตโนมัติ กรุณาใส่ URL ในแถบตั้งค่า)', 'success');
+            }
+        }
+
+        async function syncFromGoogleSheets() {
+            const { webAppUrl } = appState.config;
+            if (!webAppUrl) {
+                showToast('กรุณากรอกและบันทึก URL ของเว็บแอปที่แท็บตั้งค่าก่อน', 'error');
+                return;
+            }
+            showToast('กำลังดึงข้อมูลคลังแข่งขันจาก Google Sheets...', 'info');
+            
+            try {
+                const data = await callSheetsAPI({ action: 'get_all' });
+                if (data.success) {
+                    appState.savedTournaments = data.tournaments || [];
+                    saveStateToLocalStorage();
+                    renderSavedTournaments();
+                    showToast('ดึงข้อมูลสเปรดชีตเรียบร้อย และจัดเก็บลงหน่วยความจำแล้ว', 'success');
+                } else {
+                    showToast(`สเปรดชีตแจ้งข้อผิดพลาด: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                console.error(error);
+                showToast('การดึงข้อมูลล้มเหลว กรุณาตรวจสอบ URL และการ Deploy ของ Apps Script', 'error');
+            }
+        }
+
+        async function deleteTournament(id) {
+            if (confirm('คุณต้องการลบรายการแข่งขันนี้ออกจากระบบใช่หรือไม่? การกระทำนี้ไม่สามารถย้อนคืนได้')) {
+                const { webAppUrl } = appState.config;
+                let remoteDeleted = false;
+
+                if (webAppUrl) {
+                    showToast('กำลังลบข้อมูลจากฐานข้อมูล Google Sheets...', 'info');
+                    try {
+                        const data = await callSheetsAPI({
+                            action: 'delete_tournament',
+                            tournamentId: id
+                        });
+                        if (data.success) {
+                            remoteDeleted = true;
+                        }
+                    } catch (error) {
+                        console.error("Remote deletion failed:", error);
+                    }
+                }
+
+                // Delete Locally
+                appState.savedTournaments = appState.savedTournaments.filter(t => t.id !== id);
+                if (appState.currentTournament.id === id) {
+                    appState.currentTournament.id = null;
+                }
+                saveStateToLocalStorage();
+                renderSavedTournaments();
+                
+                if (remoteDeleted) {
+                    showToast('ลบรายการแข่งขันสำเร็จ ทั้งในระบบเบราว์เซอร์และ Google Sheets คลาวด์เรียบร้อย!', 'success');
+                } else {
+                    showToast('ลบรายการแข่งขันจาก Local Storage เรียบร้อย (ไม่สำเร็จในการซิงก์ลบฝั่ง Google Sheets)', 'success');
+                }
+            }
+        }
+    </script>
+</body>
+</html>

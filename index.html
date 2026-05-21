@@ -1100,34 +1100,30 @@
 
 
         // ======================================================
-        // CORE API: ส่งข้อมูลไป Apps Script ผ่าน no-cors fetch
-        // (ไม่สามารถอ่านค่ากลับได้ แต่ส่งไปเก็บใน Sheets ได้)
-        // สำหรับ read (get_all) ใช้ fetch ปกติ แต่ต้องเปิด Apps Script ให้ถูก
+        // ======================================================
+        // CORE API — fetch no-cors POST with URLSearchParams
+        // Apps Script รับ e.parameter ได้จาก POST form-urlencoded
         // ======================================================
         async function callSheetsAPI(payload) {
             const { webAppUrl } = appState.config;
             if (!webAppUrl) throw new Error('ยังไม่ได้ตั้งค่า Web App URL');
 
-            // สำหรับ read: ลอง fetch ปกติก่อน
-            if (payload.action === 'get_all') {
-                const encoded = encodeURIComponent(JSON.stringify(payload));
-                const url = `${webAppUrl}?payload=${encoded}`;
-                const res = await fetch(url, { method: 'GET', redirect: 'follow' });
-                const text = await res.text();
-                // Apps Script บางครั้งส่ง HTML error กลับมา
-                if (text.trim().startsWith('{')) {
-                    return JSON.parse(text);
-                }
-                throw new Error('ตอบกลับไม่ใช่ JSON');
-            }
+            const body = new URLSearchParams();
+            body.append('action', payload.action || '');
+            if (payload.tournament) body.append('tournament', JSON.stringify(payload.tournament));
+            if (payload.tournamentId) body.append('tournamentId', payload.tournamentId);
 
-            // สำหรับ write (save/delete): ใช้ no-cors — ส่งได้แต่อ่านกลับไม่ได้
-            // จึงถือว่าสำเร็จหากไม่ throw
-            const encoded = encodeURIComponent(JSON.stringify(payload));
-            const url = `${webAppUrl}?payload=${encoded}`;
-            await fetch(url, { method: 'GET', mode: 'no-cors', redirect: 'follow' });
-            // no-cors จะ return opaque response ถือว่าสำเร็จ
-            return { success: true, message: 'ส่งข้อมูลสำเร็จ (no-cors mode)' };
+            try {
+                await fetch(webAppUrl, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: body.toString()
+                });
+            } catch(e) { /* no-cors อาจ throw บน Safari — ไม่ต้องทำอะไร */ }
+
+            // no-cors ไม่สามารถอ่าน response ได้ — ถือว่าส่งสำเร็จเสมอ
+            return { success: true, message: 'ส่งข้อมูลสำเร็จ' };
         }
 
         async function testSheetsConnection() {

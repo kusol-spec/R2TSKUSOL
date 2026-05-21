@@ -55,6 +55,9 @@
                 <button onclick="switchTab('vault')" id="btn-tab-vault" class="tab-btn px-4 py-2 rounded-lg text-indigo-100 hover:text-white font-medium transition text-sm">
                     <i data-lucide="database" class="w-4 h-4 inline-block mr-1"></i> คลังการแข่งขัน
                 </button>
+                <button onclick="switchTab('groups')" id="btn-tab-groups" class="tab-btn px-4 py-2 rounded-lg text-indigo-100 hover:text-white font-medium transition text-sm">
+                    <i data-lucide="layers" class="w-4 h-4 inline-block mr-1"></i> แบ่งสาย & สนาม
+                </button>
                 <button onclick="switchTab('config')" id="btn-tab-config" class="tab-btn px-4 py-2 rounded-lg text-indigo-100 hover:text-white font-medium transition text-sm">
                     <i data-lucide="settings" class="w-4 h-4 inline-block mr-1"></i> ตั้งค่า Google Sheets
                 </button>
@@ -340,6 +343,77 @@
         </section>
     </main>
 
+        <!-- TAB: Groups & Venues -->
+        <section id="tab-groups" class="tab-content hidden space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+                <!-- ── ซ้าย: แบ่งสาย ── -->
+                <div class="bg-white rounded-xl shadow-sm p-6 border border-slate-200 space-y-4">
+                    <h2 class="text-lg font-bold text-slate-900 border-b pb-2 flex items-center gap-2">
+                        <i data-lucide="layers" class="text-blue-600"></i> แบ่งสายการแข่งขัน
+                    </h2>
+                    <p class="text-sm text-slate-500">เพิ่มทีมลงในสายก่อนสร้างโปรแกรม — ระบบจะสร้างตาราง Round-Robin แยกแต่ละสาย</p>
+
+                    <!-- สร้างสายใหม่ -->
+                    <div class="flex gap-2">
+                        <input type="text" id="new-group-name" placeholder="ชื่อสาย เช่น สาย A" 
+                               class="flex-grow px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               onkeypress="if(event.key==='Enter') addGroup()">
+                        <button onclick="addGroup()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition font-bold flex items-center gap-1 text-sm">
+                            <i data-lucide="plus" class="w-4 h-4"></i> เพิ่มสาย
+                        </button>
+                    </div>
+
+                    <!-- รายการสาย -->
+                    <div id="groups-list" class="space-y-3 max-h-[500px] overflow-y-auto">
+                        <p class="text-slate-400 text-xs text-center py-6">ยังไม่มีสาย — กดเพิ่มสายด้านบน</p>
+                    </div>
+
+                    <!-- ปุ่ม Generate แยกสาย -->
+                    <button onclick="generateGroupRoundRobin()" 
+                            class="w-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white py-3 rounded-xl hover:from-emerald-700 hover:to-teal-700 transition font-bold shadow-md flex items-center justify-center gap-2">
+                        <i data-lucide="shuffle" class="w-5 h-5"></i>
+                        สร้างโปรแกรมแข่งขันแยกตามสาย
+                    </button>
+                </div>
+
+                <!-- ── ขวา: จัดสนาม ── -->
+                <div class="bg-white rounded-xl shadow-sm p-6 border border-slate-200 space-y-4">
+                    <h2 class="text-lg font-bold text-slate-900 border-b pb-2 flex items-center gap-2">
+                        <i data-lucide="map-pin" class="text-rose-500"></i> จัดการสนามแข่งขัน
+                    </h2>
+                    <p class="text-sm text-slate-500">เพิ่มสนามแล้วกำหนดให้แต่ละคู่การแข่งขันในโปรแกรมหลัก</p>
+
+                    <!-- เพิ่มสนาม -->
+                    <div class="flex gap-2">
+                        <input type="text" id="new-venue-name" placeholder="ชื่อสนาม เช่น สนาม 1, สนามกลาง" 
+                               class="flex-grow px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-rose-400"
+                               onkeypress="if(event.key==='Enter') addVenue()">
+                        <button onclick="addVenue()" class="bg-rose-500 text-white px-4 py-2 rounded-lg hover:bg-rose-600 transition font-bold flex items-center gap-1 text-sm">
+                            <i data-lucide="plus" class="w-4 h-4"></i> เพิ่มสนาม
+                        </button>
+                    </div>
+
+                    <!-- รายการสนาม -->
+                    <div id="venues-list" class="space-y-2 max-h-60 overflow-y-auto">
+                        <p class="text-slate-400 text-xs text-center py-4">ยังไม่มีสนาม</p>
+                    </div>
+
+                    <hr class="border-slate-200">
+
+                    <!-- กำหนดสนามให้แต่ละคู่ -->
+                    <div>
+                        <h3 class="font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                            <i data-lucide="calendar-check" class="w-4 h-4 text-indigo-500"></i> กำหนดสนามให้คู่การแข่งขัน
+                        </h3>
+                        <div id="venue-assign-list" class="space-y-2 max-h-96 overflow-y-auto">
+                            <p class="text-slate-400 text-xs text-center py-4">สร้างโปรแกรมแข่งขันก่อนเพื่อกำหนดสนาม</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
     <!-- FOOTER -->
     <footer class="bg-slate-800 text-slate-400 py-6 mt-12 text-center text-xs no-print border-t border-slate-700">
         <p>© 2026 Round-Robin Tournament Management System. พัฒนาขึ้นเพื่อความแม่นยำและความยืดหยุ่นสูงสุดสำหรับการทำงานแบบ Online</p>
@@ -354,7 +428,9 @@
                 name: '',
                 sportType: 'football',
                 teams: [],
-                rounds: [] // Array of arrays of matches
+                rounds: [],
+                groups: [],   // [{name, teams}]
+                venues: []    // [{id, name}]
             },
             savedTournaments: [],
             config: {
@@ -383,6 +459,12 @@
             if (appState.currentTournament && appState.currentTournament.rounds.length > 0) {
                 renderActiveTournament();
             }
+            // render groups & venues on load
+            if (!appState.currentTournament.groups) appState.currentTournament.groups = [];
+            if (!appState.currentTournament.venues) appState.currentTournament.venues = [];
+            renderGroupsList();
+            renderVenuesList();
+            renderVenueAssignList();
         });
 
         // Navigation Tabs Controller
@@ -743,6 +825,7 @@
 
             renderLeaderboard();
             renderRounds();
+            renderVenueAssignList();
         }
 
         function renderRounds() {
@@ -774,14 +857,16 @@
                         ${roundMatches.map((match, matchIdx) => `
                             <div class="flex flex-col md:flex-row items-center justify-between bg-white p-3 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition gap-3">
                                 
-                                <!-- DateTime Config -->
+                                <!-- DateTime + Venue Config -->
                                 <div class="flex flex-row md:flex-col gap-2 md:gap-1 text-xs text-slate-600 w-full md:w-1/4">
+                                    ${match.group ? `<span class="text-xs font-bold text-blue-600 bg-blue-50 rounded px-2 py-0.5">${match.group}</span>` : ''}
                                     <input type="date" value="${match.date}" 
                                            onchange="updateMatchMeta('${match.id}', 'date', this.value)"
                                            class="px-2 py-1 bg-slate-50 border rounded-md focus:outline-none w-full max-w-[140px]">
                                     <input type="time" value="${match.time}" 
                                            onchange="updateMatchMeta('${match.id}', 'time', this.value)"
                                            class="px-2 py-1 bg-slate-50 border rounded-md focus:outline-none w-full max-w-[100px]">
+                                    ${getVenueName(match.venue) ? `<span class="text-xs text-rose-500 font-medium flex items-center gap-1"><i data-lucide="map-pin" class="w-3 h-3"></i>${getVenueName(match.venue)}</span>` : ''}
                                 </div>
 
                                 <!-- Match Pairing Display and score input -->
@@ -1263,6 +1348,256 @@
                 }
             }
         }
+
+        // ================================================================
+        // GROUPS (แบ่งสาย) FUNCTIONS
+        // ================================================================
+
+        function addGroup() {
+            const input = document.getElementById('new-group-name');
+            const name = input.value.trim();
+            if (!name) { showToast('กรุณากรอกชื่อสาย', 'error'); return; }
+            if (!appState.currentTournament.groups) appState.currentTournament.groups = [];
+            appState.currentTournament.groups.push({ id: `g-${Date.now()}`, name, teams: [] });
+            input.value = '';
+            saveStateToLocalStorage();
+            renderGroupsList();
+            showToast(`เพิ่มสาย "${name}" เรียบร้อย`, 'success');
+        }
+
+        function removeGroup(gid) {
+            appState.currentTournament.groups = appState.currentTournament.groups.filter(g => g.id !== gid);
+            saveStateToLocalStorage();
+            renderGroupsList();
+        }
+
+        function addTeamToGroup(gid) {
+            const sel = document.getElementById(`sel-${gid}`);
+            const teamName = sel.value;
+            if (!teamName) return;
+            const group = appState.currentTournament.groups.find(g => g.id === gid);
+            if (!group) return;
+            if (group.teams.includes(teamName)) { showToast('ทีมนี้อยู่ในสายนี้แล้ว', 'error'); return; }
+            group.teams.push(teamName);
+            saveStateToLocalStorage();
+            renderGroupsList();
+        }
+
+        function removeTeamFromGroup(gid, teamName) {
+            const group = appState.currentTournament.groups.find(g => g.id === gid);
+            if (group) group.teams = group.teams.filter(t => t !== teamName);
+            saveStateToLocalStorage();
+            renderGroupsList();
+        }
+
+        function renderGroupsList() {
+            const container = document.getElementById('groups-list');
+            const groups = appState.currentTournament.groups || [];
+            const allTeams = appState.currentTournament.teams || [];
+
+            if (groups.length === 0) {
+                container.innerHTML = '<p class="text-slate-400 text-xs text-center py-6">ยังไม่มีสาย — กดเพิ่มสายด้านบน</p>';
+                return;
+            }
+
+            container.innerHTML = groups.map(g => {
+                const assignedElsewhere = groups.filter(x => x.id !== g.id).flatMap(x => x.teams);
+                const available = allTeams.filter(t => !assignedElsewhere.includes(t) && !g.teams.includes(t));
+                return `
+                <div class="border border-slate-200 rounded-xl p-4 bg-slate-50 space-y-3">
+                    <div class="flex justify-between items-center">
+                        <h4 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                            <i data-lucide="layers" class="w-4 h-4 text-blue-500"></i> ${g.name}
+                            <span class="text-xs bg-blue-100 text-blue-700 rounded-full px-2 py-0.5">${g.teams.length} ทีม</span>
+                        </h4>
+                        <button onclick="removeGroup('${g.id}')" class="text-slate-400 hover:text-red-500 transition">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+
+                    <!-- ทีมในสาย -->
+                    <div class="flex flex-wrap gap-2 min-h-8">
+                        ${g.teams.length === 0 ? '<span class="text-slate-400 text-xs">ยังไม่มีทีม</span>' :
+                          g.teams.map(t => `
+                            <span class="inline-flex items-center gap-1 bg-blue-600 text-white text-xs rounded-full px-3 py-1 font-medium">
+                                ${t}
+                                <button onclick="removeTeamFromGroup('${g.id}','${t.replace(/'/g,"\'")}')" class="hover:text-red-200 ml-1">✕</button>
+                            </span>
+                          `).join('')
+                        }
+                    </div>
+
+                    <!-- เพิ่มทีม -->
+                    ${available.length > 0 ? `
+                    <div class="flex gap-2">
+                        <select id="sel-${g.id}" class="flex-grow text-sm px-2 py-1.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400">
+                            <option value="">-- เลือกทีมที่ต้องการเพิ่ม --</option>
+                            ${available.map(t => `<option value="${t}">${t}</option>`).join('')}
+                        </select>
+                        <button onclick="addTeamToGroup('${g.id}')" class="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-blue-700 transition">เพิ่ม</button>
+                    </div>` : '<p class="text-xs text-slate-400">ทีมทั้งหมดถูกจัดสายแล้ว</p>'}
+                </div>`;
+            }).join('');
+            lucide.createIcons();
+        }
+
+        function generateGroupRoundRobin() {
+            const tournamentName = document.getElementById('tournament-name').value.trim() ||
+                                   appState.currentTournament.name || 'การแข่งขันแบ่งสาย';
+            const sportType = document.getElementById('sport-type').value ||
+                              appState.currentTournament.sportType;
+            const groups = appState.currentTournament.groups || [];
+
+            if (groups.length === 0) { showToast('กรุณาเพิ่มสายก่อน', 'error'); return; }
+            const hasTeams = groups.some(g => g.teams.length >= 2);
+            if (!hasTeams) { showToast('แต่ละสายต้องมีทีมอย่างน้อย 2 ทีม', 'error'); return; }
+
+            const allRounds = [];
+
+            groups.forEach(group => {
+                if (group.teams.length < 2) return;
+                let list = [...group.teams];
+                if (list.length % 2 !== 0) list.push('BYE');
+                const n = list.length;
+
+                for (let round = 0; round < n - 1; round++) {
+                    const roundMatches = [];
+                    for (let match = 0; match < n / 2; match++) {
+                        const home = (round + match) % (n - 1);
+                        let away = match === 0 ? n - 1 : (n - 1 - match + round) % (n - 1);
+                        const hTeam = list[home], aTeam = list[away];
+                        if (hTeam !== 'BYE' && aTeam !== 'BYE') {
+                            roundMatches.push({
+                                id: `m-${group.id}-${round}-${match}-${Date.now()}`,
+                                group: group.name,
+                                home: hTeam, away: aTeam,
+                                homeScore: null, awayScore: null,
+                                date: getDefaultMatchDate(round),
+                                time: '17:00', venue: ''
+                            });
+                        }
+                    }
+                    if (roundMatches.length > 0) allRounds.push(roundMatches);
+                }
+            });
+
+            appState.currentTournament.id = `t-${Date.now()}`;
+            appState.currentTournament.name = tournamentName;
+            appState.currentTournament.sportType = sportType;
+            appState.currentTournament.rounds = allRounds;
+            // รวมทีมทั้งหมดจากทุกสาย
+            appState.currentTournament.teams = [...new Set(groups.flatMap(g => g.teams))];
+
+            saveStateToLocalStorage();
+            renderActiveTournament();
+            renderVenueAssignList();
+            switchTab('create');
+            showToast(`สร้างโปรแกรมแบ่งสายเรียบร้อย ${allRounds.length} รอบ!`, 'success');
+        }
+
+        // ================================================================
+        // VENUES (สนามแข่งขัน) FUNCTIONS
+        // ================================================================
+
+        function addVenue() {
+            const input = document.getElementById('new-venue-name');
+            const name = input.value.trim();
+            if (!name) { showToast('กรุณากรอกชื่อสนาม', 'error'); return; }
+            if (!appState.currentTournament.venues) appState.currentTournament.venues = [];
+            const id = `v-${Date.now()}`;
+            appState.currentTournament.venues.push({ id, name });
+            input.value = '';
+            saveStateToLocalStorage();
+            renderVenuesList();
+            renderVenueAssignList();
+            showToast(`เพิ่มสนาม "${name}" เรียบร้อย`, 'success');
+        }
+
+        function removeVenue(vid) {
+            appState.currentTournament.venues = (appState.currentTournament.venues || []).filter(v => v.id !== vid);
+            // ลบ venue ออกจาก matches ที่ผูกไว้
+            for (const round of appState.currentTournament.rounds) {
+                for (const match of round) {
+                    if (match.venue === vid) match.venue = '';
+                }
+            }
+            saveStateToLocalStorage();
+            renderVenuesList();
+            renderVenueAssignList();
+        }
+
+        function renderVenuesList() {
+            const container = document.getElementById('venues-list');
+            const venues = appState.currentTournament.venues || [];
+            if (venues.length === 0) {
+                container.innerHTML = '<p class="text-slate-400 text-xs text-center py-4">ยังไม่มีสนาม</p>';
+                return;
+            }
+            container.innerHTML = venues.map(v => `
+                <div class="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+                    <span class="flex items-center gap-2 text-sm font-medium text-slate-700">
+                        <i data-lucide="map-pin" class="w-4 h-4 text-rose-400"></i> ${v.name}
+                    </span>
+                    <button onclick="removeVenue('${v.id}')" class="text-slate-400 hover:text-red-500 transition">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function assignVenue(matchId, vid) {
+            for (const round of appState.currentTournament.rounds) {
+                for (const match of round) {
+                    if (match.id === matchId) { match.venue = vid; break; }
+                }
+            }
+            saveStateToLocalStorage();
+            renderRounds(); // อัปเดตโปรแกรมหลักให้แสดงสนาม
+        }
+
+        function renderVenueAssignList() {
+            const container = document.getElementById('venue-assign-list');
+            const rounds = appState.currentTournament.rounds || [];
+            const venues = appState.currentTournament.venues || [];
+
+            if (rounds.length === 0) {
+                container.innerHTML = '<p class="text-slate-400 text-xs text-center py-4">สร้างโปรแกรมแข่งขันก่อนเพื่อกำหนดสนาม</p>';
+                return;
+            }
+            if (venues.length === 0) {
+                container.innerHTML = '<p class="text-slate-400 text-xs text-center py-4">เพิ่มสนามก่อนเพื่อกำหนดสนาม</p>';
+                return;
+            }
+
+            const venueOptions = venues.map(v => `<option value="${v.id}">${v.name}</option>`).join('');
+
+            container.innerHTML = rounds.map((round, ri) =>
+                round.map(match => {
+                    const venueName = venues.find(v => v.id === match.venue)?.name || '';
+                    return `
+                    <div class="flex items-center justify-between gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm">
+                        <div class="flex-1 min-w-0">
+                            ${match.group ? `<span class="text-xs text-blue-600 font-semibold">[${match.group}]</span> ` : ''}
+                            <span class="font-medium truncate">${match.home} <span class="text-slate-400">vs</span> ${match.away}</span>
+                            ${venueName ? `<span class="ml-1 text-xs text-rose-500">(${venueName})</span>` : ''}
+                        </div>
+                        <select onchange="assignVenue('${match.id}', this.value)"
+                                class="text-xs border border-slate-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-rose-400 bg-white">
+                            <option value="">-- เลือกสนาม --</option>
+                            ${venueOptions}
+                        </select>
+                    </div>`;
+                }).join('')
+            ).join('');
+        }
+
+        // เพิ่มการแสดงสนามในโปรแกรมหลัก (patch renderRounds)
+        function getVenueName(venueId) {
+            const venues = appState.currentTournament.venues || [];
+            return venues.find(v => v.id === venueId)?.name || '';
+        }
+
     </script>
 </body>
 </html>

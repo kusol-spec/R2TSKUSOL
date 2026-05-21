@@ -1168,13 +1168,13 @@
                 return;
             }
 
-            // Save inside local memory first
-            const existingIndex = appState.savedTournaments.findIndex(t => t.id === current.id);
-            if (existingIndex > -1) {
-                appState.savedTournaments[existingIndex] = JSON.parse(JSON.stringify(current));
-            } else {
-                appState.savedTournaments.push(JSON.parse(JSON.stringify(current)));
-            }
+            // สร้าง ID ใหม่ทุกครั้งที่บันทึก — ไม่ทับของเดิม
+            const snapshot = JSON.parse(JSON.stringify(current));
+            snapshot.id = `t-${Date.now()}`;
+            snapshot.savedAt = new Date().toISOString();
+
+            // บันทึกลง savedTournaments เป็นรายการใหม่เสมอ
+            appState.savedTournaments.push(snapshot);
             saveStateToLocalStorage();
             renderSavedTournaments();
 
@@ -1184,19 +1184,19 @@
                 try {
                     const resData = await callSheetsAPI({
                         action: 'save_tournament',
-                        tournament: current
+                        tournament: snapshot
                     });
                     if (resData.success) {
-                        showToast('บันทึกข้อมูลและอัปโหลดไปยัง Google Sheets เรียบร้อยแล้ว!', 'success');
+                        showToast('✅ บันทึกรายการใหม่และอัปโหลดไปยัง Google Sheets เรียบร้อยแล้ว!', 'success');
                     } else {
                         showToast(`คลาวด์ตอบรับผิดพลาด: ${resData.message}`, 'error');
                     }
                 } catch (error) {
                     console.error(error);
-                    showToast('บันทึกใน LocalStorage แล้ว แต่ส่งข้อมูลขึ้น Google Sheets ไม่สำเร็จ (กรุณาตรวจสอบ URL ในแท็บตั้งค่า)', 'error');
+                    showToast('บันทึกใน LocalStorage แล้ว แต่ส่งข้อมูลขึ้น Google Sheets ไม่สำเร็จ', 'error');
                 }
             } else {
-                showToast('บันทึกลงฐานข้อมูลภายในเบราว์เซอร์ (LocalStorage) สำเร็จแล้ว! (หากต้องการส่งออกไปยัง Google Sheets อัตโนมัติ กรุณาใส่ URL ในแถบตั้งค่า)', 'success');
+                showToast('✅ บันทึกรายการใหม่ลงฐานข้อมูลภายในเบราว์เซอร์สำเร็จแล้ว!', 'success');
             }
         }
 

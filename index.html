@@ -714,7 +714,7 @@
             }
 
             // Save details
-            appState.currentTournament.id = appState.currentTournament.id || `t-${Date.now()}`;
+            appState.currentTournament.id = `t-${Date.now()}`; // สร้าง ID ใหม่ทุกครั้งที่ generate
             appState.currentTournament.name = tournamentName;
             appState.currentTournament.sportType = sportType;
             appState.currentTournament.rounds = rounds;
@@ -1168,13 +1168,17 @@
                 return;
             }
 
-            // สร้าง ID ใหม่ทุกครั้งที่บันทึก — ไม่ทับของเดิม
+            // snapshot ใช้ ID จาก currentTournament ที่ถูก generate ใหม่แล้ว
             const snapshot = JSON.parse(JSON.stringify(current));
-            snapshot.id = `t-${Date.now()}`;
             snapshot.savedAt = new Date().toISOString();
 
-            // บันทึกลง savedTournaments เป็นรายการใหม่เสมอ
-            appState.savedTournaments.push(snapshot);
+            // ตรวจสอบว่าซ้ำหรือไม่ — ถ้าซ้ำให้ทับ, ถ้าใหม่ให้เพิ่ม
+            const existingIndex = appState.savedTournaments.findIndex(t => t.id === snapshot.id);
+            if (existingIndex > -1) {
+                appState.savedTournaments[existingIndex] = snapshot;
+            } else {
+                appState.savedTournaments.push(snapshot);
+            }
             saveStateToLocalStorage();
             renderSavedTournaments();
 

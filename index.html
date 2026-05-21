@@ -151,30 +151,33 @@
 
                     <!-- STANDING LEADERBOARD (Real-time calculation) -->
                     <div id="leaderboard-section" class="bg-white rounded-xl shadow-sm p-6 border border-slate-200 hidden">
-                        <h3 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-                            <i data-lucide="list-ordered" class="text-yellow-500"></i> ตารางคะแนนและสรุปผล (Standings)
-                        </h3>
-                        <div class="overflow-x-auto">
-                            <table class="min-w-full text-sm text-left">
-                                <thead class="bg-slate-50 text-slate-700 uppercase">
-                                    <tr>
-                                        <th class="py-3 px-4 font-bold text-center">อันดับ</th>
-                                        <th class="py-3 px-4 font-bold">ชื่อทีม</th>
-                                        <th class="py-3 px-4 font-bold text-center">แข่ง</th>
-                                        <th class="py-3 px-4 font-bold text-center">ชนะ</th>
-                                        <th class="py-3 px-4 font-bold text-center">เสมอ</th>
-                                        <th class="py-3 px-4 font-bold text-center">แพ้</th>
-                                        <th class="py-3 px-4 font-bold text-center">ได้</th>
-                                        <th class="py-3 px-4 font-bold text-center">เสีย</th>
-                                        <th class="py-3 px-4 font-bold text-center">+/-</th>
-                                        <th class="py-3 px-4 font-bold text-center text-blue-700 bg-blue-50">คะแนน</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="leaderboard-body" class="divide-y divide-slate-100">
-                                    <!-- Dynamic Leaderboard Data -->
-                                </tbody>
-                            </table>
+                        <!-- Header + controls -->
+                        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                            <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                                <i data-lucide="list-ordered" class="text-yellow-500"></i>
+                                ตารางคะแนนและสรุปผล (Standings)
+                            </h3>
+                            <div class="flex items-center gap-2">
+                                <!-- toggle mode -->
+                                <div class="flex rounded-lg border border-slate-300 overflow-hidden text-sm">
+                                    <button id="lb-btn-overall" onclick="setStandingsMode('overall')"
+                                            class="px-3 py-1.5 font-semibold bg-blue-600 text-white transition">
+                                        รวม
+                                    </button>
+                                    <button id="lb-btn-group" onclick="setStandingsMode('group')"
+                                            class="px-3 py-1.5 font-semibold bg-white text-slate-600 hover:bg-slate-50 transition">
+                                        แบ่งสาย
+                                    </button>
+                                </div>
+                                <!-- print standings -->
+                                <button onclick="printStandings()"
+                                        class="flex items-center gap-1 bg-slate-700 hover:bg-slate-900 text-white text-sm px-3 py-1.5 rounded-lg transition font-semibold">
+                                    <i data-lucide="printer" class="w-4 h-4"></i> พิมพ์
+                                </button>
+                            </div>
                         </div>
+                        <!-- standings body — rendered dynamically -->
+                        <div id="leaderboard-body" class="space-y-6"></div>
                     </div>
 
                     <!-- SCHEDULE MATCHES (Round by Round) -->
@@ -990,94 +993,222 @@
         }
 
         // LEADERBOARD STANDING SYSTEM (DYNAMICAL SCORE CALCULATION)
-        function renderLeaderboard() {
-            const t = appState.currentTournament;
-            const teams = t.teams;
-            const rounds = t.rounds;
-            const sportId = t.sportType;
+        // ── Standings mode state ──────────────────────────────────────────────────
+        let standingsMode = 'overall'; // 'overall' | 'group'
 
-            const sportSetting = appState.sports.find(s => s.id === sportId) || {
-                winPoints: 3,
-                drawPoints: 1,
-                losePoints: 0,
-                allowDraw: true
-            };
+        function setStandingsMode(mode) {
+            standingsMode = mode;
+            document.getElementById('lb-btn-overall').className =
+                'px-3 py-1.5 font-semibold transition ' +
+                (mode === 'overall' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50');
+            document.getElementById('lb-btn-group').className =
+                'px-3 py-1.5 font-semibold transition ' +
+                (mode === 'group' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50');
+            renderLeaderboard();
+        }
 
-            const standings = {};
-            teams.forEach(team => {
-                standings[team] = {
-                    name: team, played: 0, won: 0, drawn: 0, lost: 0,
-                    goalsFor: 0, goalsAgainst: 0, points: 0
-                };
+        // ── คำนวณคะแนนจาก matches array ───────────────────────────────────────
+        function calcStandings(matches, teamList, sportSetting) {
+            const st = {};
+            teamList.forEach(t => {
+                st[t] = { name: t, played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0, points: 0 };
             });
-
-            rounds.forEach(round => {
-                round.forEach(match => {
-                    if (match.homeScore !== null && match.awayScore !== null) {
-                        const h = match.home;
-                        const a = match.away;
-                        const hs = match.homeScore;
-                        const as = match.awayScore;
-
-                        if (!standings[h]) standings[h] = { name: h, played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0, points: 0 };
-                        if (!standings[a]) standings[a] = { name: a, played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0, points: 0 };
-
-                        standings[h].played++;
-                        standings[a].played++;
-                        standings[h].goalsFor += hs;
-                        standings[h].goalsAgainst += as;
-                        standings[a].goalsFor += as;
-                        standings[a].goalsAgainst += hs;
-
-                        if (hs > as) {
-                            standings[h].won++;
-                            standings[h].points += sportSetting.winPoints;
-                            standings[a].lost++;
-                            standings[a].points += sportSetting.losePoints;
-                        } else if (hs < as) {
-                            standings[a].won++;
-                            standings[a].points += sportSetting.winPoints;
-                            standings[h].lost++;
-                            standings[h].points += sportSetting.losePoints;
-                        } else {
-                            if (sportSetting.allowDraw) {
-                                standings[h].drawn++;
-                                standings[h].points += sportSetting.drawPoints;
-                                standings[a].drawn++;
-                                standings[a].points += sportSetting.drawPoints;
-                            } else {
-                                standings[h].drawn++;
-                                standings[a].drawn++;
-                            }
-                        }
-                    }
-                });
+            matches.forEach(m => {
+                if (m.homeScore === null || m.awayScore === null) return;
+                const h = m.home, a = m.away;
+                const hs = +m.homeScore, as = +m.awayScore;
+                if (!st[h]) st[h] = { name: h, played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0, points: 0 };
+                if (!st[a]) st[a] = { name: a, played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0, points: 0 };
+                st[h].played++; st[a].played++;
+                st[h].goalsFor += hs; st[h].goalsAgainst += as;
+                st[a].goalsFor += as; st[a].goalsAgainst += hs;
+                if (hs > as) {
+                    st[h].won++; st[h].points += sportSetting.winPoints;
+                    st[a].lost++; st[a].points += sportSetting.losePoints;
+                } else if (hs < as) {
+                    st[a].won++; st[a].points += sportSetting.winPoints;
+                    st[h].lost++; st[h].points += sportSetting.losePoints;
+                } else {
+                    if (sportSetting.allowDraw) {
+                        st[h].drawn++; st[h].points += sportSetting.drawPoints;
+                        st[a].drawn++; st[a].points += sportSetting.drawPoints;
+                    } else { st[h].drawn++; st[a].drawn++; }
+                }
             });
-
-            const standingsArray = Object.values(standings);
-            standingsArray.sort((x, y) => {
+            return Object.values(st).sort((x, y) => {
                 if (y.points !== x.points) return y.points - x.points;
-                const gdX = x.goalsFor - x.goalsAgainst;
-                const gdY = y.goalsFor - y.goalsAgainst;
+                const gdX = x.goalsFor - x.goalsAgainst, gdY = y.goalsFor - y.goalsAgainst;
                 if (gdY !== gdX) return gdY - gdX;
                 return y.goalsFor - x.goalsFor;
             });
+        }
 
-            const tbody = document.getElementById('leaderboard-body');
-            tbody.innerHTML = standingsArray.map((st, idx) => `
-                <tr class="${idx === 0 ? 'bg-yellow-50/50' : ''} hover:bg-slate-50 transition">
-                    <td class="py-3 px-4 font-bold text-center text-slate-600">${idx + 1}</td>
-                    <td class="py-3 px-4 font-bold text-slate-900">${st.name}</td>
-                    <td class="py-3 px-4 text-center">${st.played}</td>
-                    <td class="py-3 px-4 text-center text-emerald-600 font-semibold">${st.won}</td>
-                    <td class="py-3 px-4 text-center text-amber-600">${st.drawn}</td>
-                    <td class="py-3 px-4 text-center text-rose-600">${st.lost}</td>
-                    <td class="py-3 px-4 text-center">${st.goalsFor}</td>
-                    <td class="py-3 px-4 text-center">${st.goalsAgainst}</td>
-                    <td class="py-3 px-4 text-center font-medium">${st.goalsFor - st.goalsAgainst > 0 ? '+' : ''}${st.goalsFor - st.goalsAgainst}</td>
-                    <td class="py-3 px-4 text-center text-lg font-bold text-blue-800 bg-blue-50/50">${st.points}</td>
-                </tr>
-            `).join('');
+        // ── HTML ตารางคะแนน ────────────────────────────────────────────────────
+        function standingsTableHtml(rows, label) {
+            const hasGoals = rows.some(r => r.goalsFor > 0 || r.goalsAgainst > 0 || r.played > 0);
+            return `
+            <div>
+                ${label ? `<div class="flex items-center gap-2 mb-2">
+                    <span class="inline-block bg-blue-700 text-white text-xs font-bold px-3 py-1 rounded-full">${label}</span>
+                </div>` : ''}
+                <div class="overflow-x-auto rounded-xl border border-slate-200">
+                <table class="min-w-full text-sm text-left">
+                    <thead class="bg-slate-100 text-slate-700 text-xs uppercase">
+                        <tr>
+                            <th class="py-2 px-3 text-center w-8">#</th>
+                            <th class="py-2 px-4">ทีม</th>
+                            <th class="py-2 px-3 text-center">แข่ง</th>
+                            <th class="py-2 px-3 text-center text-emerald-700">ชนะ</th>
+                            <th class="py-2 px-3 text-center text-amber-600">เสมอ</th>
+                            <th class="py-2 px-3 text-center text-rose-600">แพ้</th>
+                            ${hasGoals ? '<th class="py-2 px-3 text-center">ได้</th><th class="py-2 px-3 text-center">เสีย</th><th class="py-2 px-3 text-center">+/-</th>' : ''}
+                            <th class="py-2 px-3 text-center text-blue-800 bg-blue-50 font-bold">คะแนน</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        ${rows.map((st, idx) => {
+                            const gd = st.goalsFor - st.goalsAgainst;
+                            const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : idx + 1;
+                            return `<tr class="${idx === 0 ? 'bg-yellow-50/60' : 'hover:bg-slate-50'} transition">
+                                <td class="py-2 px-3 font-bold text-center text-slate-500">${medal}</td>
+                                <td class="py-2 px-4 font-semibold text-slate-900">${st.name}</td>
+                                <td class="py-2 px-3 text-center">${st.played}</td>
+                                <td class="py-2 px-3 text-center text-emerald-600 font-semibold">${st.won}</td>
+                                <td class="py-2 px-3 text-center text-amber-600">${st.drawn}</td>
+                                <td class="py-2 px-3 text-center text-rose-600">${st.lost}</td>
+                                ${hasGoals ? `<td class="py-2 px-3 text-center">${st.goalsFor}</td><td class="py-2 px-3 text-center">${st.goalsAgainst}</td><td class="py-2 px-3 text-center font-medium ${gd > 0 ? 'text-emerald-600' : gd < 0 ? 'text-rose-600' : ''}">${gd > 0 ? '+' : ''}${gd}</td>` : ''}
+                                <td class="py-2 px-3 text-center text-lg font-bold text-blue-800 bg-blue-50/50">${st.points}</td>
+                            </tr>`;
+                        }).join('')}
+                    </tbody>
+                </table>
+                </div>
+            </div>`;
+        }
+
+        // ── renderLeaderboard (main) ───────────────────────────────────────────
+        function renderLeaderboard() {
+            const t = appState.currentTournament;
+            const sportSetting = appState.sports.find(s => s.id === t.sportType) ||
+                                 { winPoints: 3, drawPoints: 1, losePoints: 0, allowDraw: true };
+            const allMatches = t.rounds.flat();
+            const container  = document.getElementById('leaderboard-body');
+            const groups     = t.groups || [];
+            const hasGroups  = groups.length > 0 && groups.some(g => g.teams.length > 0);
+
+            // ซ่อน/แสดงปุ่ม toggle ตามว่ามีสายหรือไม่
+            const groupBtn = document.getElementById('lb-btn-group');
+            if (groupBtn) groupBtn.style.display = hasGroups ? '' : 'none';
+            if (!hasGroups && standingsMode === 'group') standingsMode = 'overall';
+
+            if (standingsMode === 'overall') {
+                // ── โหมดรวม: ตารางเดียวทุกทีม ──────────────────────────────
+                const rows = calcStandings(allMatches, t.teams, sportSetting);
+                container.innerHTML = standingsTableHtml(rows, null);
+
+            } else {
+                // ── โหมดแบ่งสาย: ตารางแยกแต่ละสาย ────────────────────────
+                const htmlParts = groups.map(g => {
+                    if (g.teams.length === 0) return '';
+                    const groupMatches = allMatches.filter(m => m.group === g.name);
+                    const rows = calcStandings(groupMatches, g.teams, sportSetting);
+                    return standingsTableHtml(rows, g.name);
+                }).filter(Boolean);
+
+                if (htmlParts.length === 0) {
+                    container.innerHTML = '<p class="text-slate-400 text-center py-8">ยังไม่มีข้อมูลสาย กรุณาแบ่งสายในแท็บ "แบ่งสาย & สนาม" ก่อน</p>';
+                } else {
+                    container.innerHTML = htmlParts.join('');
+                }
+            }
+        }
+
+        // ── Print Standings ───────────────────────────────────────────────────
+        function printStandings() {
+            const t = appState.currentTournament;
+            const sportSetting = appState.sports.find(s => s.id === t.sportType) ||
+                                 { winPoints: 3, drawPoints: 1, losePoints: 0, allowDraw: true };
+            const allMatches = t.rounds.flat();
+            const groups = t.groups || [];
+            const hasGroups = groups.length > 0 && groups.some(g => g.teams.length > 0);
+            const tName = t.name || 'การแข่งขัน';
+            const mode = standingsMode;
+
+            let bodyHtml = '';
+            if (mode === 'overall' || !hasGroups) {
+                const rows = calcStandings(allMatches, t.teams, sportSetting);
+                bodyHtml = buildPrintTable(rows, 'ตารางคะแนนรวม');
+            } else {
+                bodyHtml = groups.map(g => {
+                    if (g.teams.length === 0) return '';
+                    const gMatches = allMatches.filter(m => m.group === g.name);
+                    const rows = calcStandings(gMatches, g.teams, sportSetting);
+                    return buildPrintTable(rows, g.name);
+                }).filter(Boolean).join('');
+            }
+
+            const win = window.open('', '_blank');
+            win.document.write(`<!DOCTYPE html><html lang="th"><head>
+                <meta charset="UTF-8">
+                <title>ตารางคะแนน — ${tName}</title>
+                <style>
+                    @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap');
+                    *{box-sizing:border-box;margin:0;padding:0}
+                    body{font-family:'Sarabun',sans-serif;background:#fff;color:#111;padding:20px}
+                    .page-header{text-align:center;border-bottom:3px solid #1e3a8a;padding-bottom:12px;margin-bottom:20px}
+                    .page-header h1{font-size:22px;font-weight:700;color:#1e3a8a}
+                    .page-header p{font-size:13px;color:#555;margin-top:4px}
+                    .group-block{margin-bottom:24px}
+                    .group-label{display:inline-block;background:#1e3a8a;color:#fff;font-size:13px;font-weight:700;padding:4px 14px;border-radius:20px;margin-bottom:8px}
+                    table{width:100%;border-collapse:collapse;font-size:13px}
+                    thead{background:#f1f5f9}
+                    th,td{padding:7px 10px;border:1px solid #e5e7eb;text-align:center}
+                    th{font-weight:700;color:#374151}
+                    td:nth-child(2){text-align:left;font-weight:600}
+                    tr:first-child td{background:#fefce8}
+                    .pts{background:#eff6ff;font-weight:700;color:#1d4ed8}
+                    .footer{text-align:center;font-size:11px;color:#aaa;margin-top:16px}
+                    @media print{button{display:none}}
+                </style>
+            </head><body>
+                <div class="page-header">
+                    <h1>🏆 ${tName}</h1>
+                    <p>ตารางคะแนน${mode==='group'&&hasGroups?' (แบ่งสาย)':' (รวม)'} | วันที่: ${new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'})}</p>
+                </div>
+                ${bodyHtml}
+                <div class="footer">พิมพ์โดยระบบจัดการแข่งขันกีฬาพบกันหมด</div>
+                <br>
+                <div style="text-align:center">
+                    <button onclick="window.print()" style="padding:10px 24px;background:#1e3a8a;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer;font-family:Sarabun,sans-serif">🖨️ พิมพ์ / บันทึก PDF</button>
+                </div>
+            </body></html>`);
+            win.document.close();
+        }
+
+        function buildPrintTable(rows, label) {
+            const hasGoals = rows.some(r => r.goalsFor > 0 || r.goalsAgainst > 0 || r.played > 0);
+            return `<div class="group-block">
+                <div class="group-label">🏅 ${label}</div>
+                <table>
+                    <thead><tr>
+                        <th>#</th><th style="text-align:left">ทีม</th>
+                        <th>แข่ง</th><th>ชนะ</th><th>เสมอ</th><th>แพ้</th>
+                        ${hasGoals ? '<th>ได้</th><th>เสีย</th><th>+/-</th>' : ''}
+                        <th class="pts">คะแนน</th>
+                    </tr></thead>
+                    <tbody>
+                        ${rows.map((st, i) => {
+                            const gd = st.goalsFor - st.goalsAgainst;
+                            return `<tr>
+                                <td>${i+1}</td><td style="text-align:left">${st.name}</td>
+                                <td>${st.played}</td><td>${st.won}</td><td>${st.drawn}</td><td>${st.lost}</td>
+                                ${hasGoals ? `<td>${st.goalsFor}</td><td>${st.goalsAgainst}</td><td>${gd>0?'+':''}${gd}</td>` : ''}
+                                <td class="pts">${st.points}</td>
+                            </tr>`;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>`;
         }
 
         // CLEAR CURRENT TOURNAMENT INPUTS

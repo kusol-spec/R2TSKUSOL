@@ -58,6 +58,9 @@
                 <button onclick="switchTab('groups')" id="btn-tab-groups" class="tab-btn px-4 py-2 rounded-lg text-indigo-100 hover:text-white font-medium transition text-sm">
                     <i data-lucide="layers" class="w-4 h-4 inline-block mr-1"></i> แบ่งสาย & สนาม
                 </button>
+                <button onclick="switchTab('playoff')" id="btn-tab-playoff" class="tab-btn px-4 py-2 rounded-lg text-indigo-100 hover:text-white font-medium transition text-sm">
+                    <i data-lucide="trophy" class="w-4 h-4 inline-block mr-1"></i> รอบสรุป
+                </button>
                 <button onclick="switchTab('config')" id="btn-tab-config" class="tab-btn px-4 py-2 rounded-lg text-indigo-100 hover:text-white font-medium transition text-sm">
                     <i data-lucide="settings" class="w-4 h-4 inline-block mr-1"></i> ตั้งค่า Google Sheets
                 </button>
@@ -432,6 +435,67 @@
             </div>
         </section>
 
+        <!-- TAB: PLAYOFF -->
+        <section id="tab-playoff" class="tab-content hidden space-y-6">
+
+            <!-- Header -->
+            <div class="bg-white rounded-xl shadow-sm p-5 border border-slate-200">
+                <div class="flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                            <i data-lucide="trophy" class="text-yellow-500 w-5 h-5"></i> รอบสรุป (Playoff)
+                        </h2>
+                        <p class="text-sm text-slate-500 mt-1">นำทีมอันดับ 1–3 จากแต่ละสายมาแข่งพบกันหมดเพื่อหาแชมป์และอันดับรวม</p>
+                    </div>
+                    <div class="flex flex-wrap gap-2 items-center">
+                        <div class="flex items-center gap-2 bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2">
+                            <label class="text-xs font-semibold text-indigo-700">คัดอันดับ 1 ถึง</label>
+                            <select id="playoff-top-n" class="text-sm border border-indigo-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white">
+                                <option value="1">อันดับ 1</option>
+                                <option value="2">อันดับ 2</option>
+                                <option value="3" selected>อันดับ 3</option>
+                                <option value="4">อันดับ 4</option>
+                            </select>
+                            <span class="text-xs text-indigo-600">จากแต่ละสาย</span>
+                        </div>
+                        <button onclick="generatePlayoff()"
+                                class="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 text-sm shadow transition">
+                            <i data-lucide="zap" class="w-4 h-4"></i> สร้างโปรแกรมรอบสรุป
+                        </button>
+                        <button onclick="printPlayoff()"
+                                class="bg-slate-700 hover:bg-slate-900 text-white px-3 py-2 rounded-lg text-sm font-bold flex items-center gap-1 transition">
+                            <i data-lucide="printer" class="w-4 h-4"></i> พิมพ์
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ทีมที่ผ่านเข้ารอบ -->
+            <div id="playoff-qualified" class="bg-white rounded-xl shadow-sm p-5 border border-slate-200 hidden">
+                <h3 class="font-bold text-slate-800 mb-3 flex items-center gap-2">
+                    <i data-lucide="users" class="w-4 h-4 text-indigo-500"></i> ทีมที่ผ่านเข้ารอบสรุป
+                </h3>
+                <div id="playoff-qualified-list" class="flex flex-wrap gap-2"></div>
+            </div>
+
+            <!-- ตารางแข่งรอบสรุป -->
+            <div id="playoff-schedule-section" class="bg-white rounded-xl shadow-sm p-5 border border-slate-200 hidden">
+                <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <i data-lucide="calendar" class="w-4 h-4 text-blue-500"></i> โปรแกรมรอบสรุป
+                </h3>
+                <div id="playoff-rounds-container" class="space-y-4"></div>
+            </div>
+
+            <!-- ตารางคะแนนรอบสรุป -->
+            <div id="playoff-standings-section" class="bg-white rounded-xl shadow-sm p-5 border border-slate-200 hidden">
+                <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <i data-lucide="list-ordered" class="w-4 h-4 text-yellow-500"></i> ตารางคะแนนรอบสรุป
+                </h3>
+                <div id="playoff-standings-body"></div>
+            </div>
+
+        </section>
+
     <!-- FOOTER -->
     <footer class="bg-slate-800 text-slate-400 py-6 mt-12 text-center text-xs no-print border-t border-slate-700">
         <p>© 2026 Round-Robin Tournament Management System. พัฒนาขึ้นเพื่อความแม่นยำและความยืดหยุ่นสูงสุดสำหรับการทำงานแบบ Online</p>
@@ -483,6 +547,8 @@
             renderGroupsList();
             renderVenuesList();
             renderVenueAssignList();
+            if (!appState.playoff) appState.playoff = { rounds: [], teams: [] };
+            if (appState.playoff.rounds && appState.playoff.rounds.length > 0) renderPlayoff();
         });
 
         // Navigation Tabs Controller
@@ -1856,6 +1922,301 @@
         function getVenueName(venueId) {
             const venues = appState.currentTournament.venues || [];
             return venues.find(v => v.id === venueId)?.name || '';
+        }
+
+
+        // ================================================================
+        // PLAYOFF SYSTEM — นำทีม Top-N จากแต่ละสายมาแข่งพบกันหมด
+        // ================================================================
+
+        // state สำหรับรอบสรุป (เก็บแยกจาก currentTournament)
+        if (!appState.playoff) appState.playoff = { rounds: [], teams: [] };
+
+        function generatePlayoff() {
+            const t = appState.currentTournament;
+            const groups = t.groups || [];
+            const sportSetting = appState.sports.find(s => s.id === t.sportType) ||
+                                 { winPoints: 3, drawPoints: 1, losePoints: 0, allowDraw: true };
+            const topN = parseInt(document.getElementById('playoff-top-n').value) || 3;
+
+            if (groups.length === 0 || !groups.some(g => g.teams.length >= 2)) {
+                showToast('กรุณาสร้างโปรแกรมแบ่งสายก่อน', 'error'); return;
+            }
+
+            // คำนวณ standings แต่ละสาย → คัด top-N
+            const allGroupMatches = t.rounds.flat();
+            const qualifiedTeams = [];
+
+            groups.forEach(g => {
+                if (g.teams.length === 0) return;
+                const gMatches = allGroupMatches.filter(m => m.group === g.name);
+                const rows = calcStandings(gMatches, g.teams, sportSetting);
+                rows.slice(0, topN).forEach((row, rank) => {
+                    qualifiedTeams.push({
+                        name: row.name,
+                        fromGroup: g.name,
+                        groupRank: rank + 1
+                    });
+                });
+            });
+
+            if (qualifiedTeams.length < 2) {
+                showToast('ต้องมีทีมผ่านเข้ารอบอย่างน้อย 2 ทีม กรุณากรอกผลการแข่งสายก่อน', 'error'); return;
+            }
+
+            // สร้าง Round-Robin สำหรับทีมที่ผ่านเข้ารอบ
+            const teamNames = qualifiedTeams.map(q => q.name);
+            let list = [...teamNames];
+            if (list.length % 2 !== 0) list.push('BYE');
+            const n = list.length;
+            const playoffRounds = [];
+
+            for (let round = 0; round < n - 1; round++) {
+                const roundMatches = [];
+                for (let match = 0; match < n / 2; match++) {
+                    const hi = (round + match) % (n - 1);
+                    const ai = match === 0 ? n - 1 : (n - 1 - match + round) % (n - 1);
+                    const hTeam = list[hi], aTeam = list[ai];
+                    if (hTeam !== 'BYE' && aTeam !== 'BYE') {
+                        roundMatches.push({
+                            id: `pf-${round}-${match}-${Date.now()}`,
+                            home: hTeam, away: aTeam,
+                            homeScore: null, awayScore: null,
+                            date: getDefaultMatchDate(round),
+                            time: '17:00', venue: '', phase: 'playoff'
+                        });
+                    }
+                }
+                if (roundMatches.length > 0) playoffRounds.push(roundMatches);
+            }
+
+            appState.playoff = { rounds: playoffRounds, teams: qualifiedTeams };
+            saveStateToLocalStorage();
+            renderPlayoff();
+            showToast(`สร้างโปรแกรมรอบสรุป ${qualifiedTeams.length} ทีม เรียบร้อย!`, 'success');
+        }
+
+        function renderPlayoff() {
+            const playoff = appState.playoff || { rounds: [], teams: [] };
+            if (!playoff.rounds || playoff.rounds.length === 0) return;
+
+            const t = appState.currentTournament;
+            const sportSetting = appState.sports.find(s => s.id === t.sportType) ||
+                                 { winPoints: 3, drawPoints: 1, losePoints: 0, allowDraw: true };
+
+            // แสดงทีมที่ผ่านเข้ารอบ
+            const qualSection = document.getElementById('playoff-qualified');
+            const qualList = document.getElementById('playoff-qualified-list');
+            qualSection.classList.remove('hidden');
+
+            // จัดกลุ่มตาม group rank
+            const byGroup = {};
+            (playoff.teams || []).forEach(q => {
+                if (!byGroup[q.fromGroup]) byGroup[q.fromGroup] = [];
+                byGroup[q.fromGroup].push(q);
+            });
+
+            const medals = ['🥇','🥈','🥉','4️⃣'];
+            qualList.innerHTML = Object.entries(byGroup).map(([gName, teams]) =>
+                `<div class="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 min-w-[160px]">
+                    <div class="text-xs font-bold text-blue-700 mb-2">${gName}</div>
+                    ${teams.map(q =>
+                        `<div class="flex items-center gap-2 text-sm py-0.5">
+                            <span>${medals[q.groupRank-1] || q.groupRank}</span>
+                            <span class="font-semibold text-slate-800">${q.name}</span>
+                        </div>`
+                    ).join('')}
+                </div>`
+            ).join('');
+
+            // แสดงโปรแกรม
+            const schedSection = document.getElementById('playoff-schedule-section');
+            const container = document.getElementById('playoff-rounds-container');
+            schedSection.classList.remove('hidden');
+
+            container.innerHTML = playoff.rounds.map((roundMatches, roundIdx) => `
+                <div class="border border-indigo-100 rounded-xl p-4 bg-indigo-50/30">
+                    <h4 class="font-bold text-indigo-800 mb-3 flex items-center gap-2 text-sm">
+                        <i data-lucide="zap" class="w-4 h-4"></i> รอบที่ ${roundIdx + 1}
+                    </h4>
+                    <div class="space-y-3">
+                        ${roundMatches.map(match => `
+                            <div class="flex flex-col md:flex-row items-center justify-between bg-white p-3 rounded-xl border border-indigo-200 shadow-sm gap-3">
+                                <div class="flex flex-col gap-1 text-xs text-slate-500 w-full md:w-1/4">
+                                    <input type="date" value="${match.date}"
+                                           onchange="updatePlayoffMatchMeta('${match.id}', 'date', this.value)"
+                                           class="px-2 py-1 bg-slate-50 border rounded-md focus:outline-none w-full max-w-[140px]">
+                                    <input type="time" value="${match.time}"
+                                           onchange="updatePlayoffMatchMeta('${match.id}', 'time', this.value)"
+                                           class="px-2 py-1 bg-slate-50 border rounded-md focus:outline-none w-full max-w-[100px]">
+                                </div>
+                                <div class="flex items-center justify-center space-x-4 w-full md:w-2/4">
+                                    <span class="font-semibold text-right w-1/3 truncate text-sm">${match.home}</span>
+                                    <div class="flex items-center space-x-2">
+                                        <input type="number" min="0" placeholder="-" value="${match.homeScore !== null ? match.homeScore : ''}"
+                                               onchange="updatePlayoffScore('${match.id}', 'home', this.value)"
+                                               class="w-12 h-10 border border-slate-300 rounded-lg text-center font-bold text-lg bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500">
+                                        <span class="text-slate-400 font-bold text-xs">VS</span>
+                                        <input type="number" min="0" placeholder="-" value="${match.awayScore !== null ? match.awayScore : ''}"
+                                               onchange="updatePlayoffScore('${match.id}', 'away', this.value)"
+                                               class="w-12 h-10 border border-slate-300 rounded-lg text-center font-bold text-lg bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500">
+                                    </div>
+                                    <span class="font-semibold text-left w-1/3 truncate text-sm">${match.away}</span>
+                                </div>
+                                <div class="w-full md:w-1/4"></div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+            lucide.createIcons();
+
+            // ตารางคะแนน
+            renderPlayoffStandings();
+        }
+
+        function updatePlayoffMatchMeta(matchId, field, value) {
+            for (const round of (appState.playoff.rounds || [])) {
+                for (const match of round) {
+                    if (match.id === matchId) { match[field] = value; break; }
+                }
+            }
+            saveStateToLocalStorage();
+        }
+
+        function updatePlayoffScore(matchId, side, value) {
+            const val = value === '' ? null : parseInt(value);
+            for (const round of (appState.playoff.rounds || [])) {
+                for (const match of round) {
+                    if (match.id === matchId) {
+                        if (side === 'home') match.homeScore = val;
+                        else match.awayScore = val;
+                        break;
+                    }
+                }
+            }
+            saveStateToLocalStorage();
+            renderPlayoffStandings();
+        }
+
+        function renderPlayoffStandings() {
+            const playoff = appState.playoff || { rounds: [], teams: [] };
+            const t = appState.currentTournament;
+            const sportSetting = appState.sports.find(s => s.id === t.sportType) ||
+                                 { winPoints: 3, drawPoints: 1, losePoints: 0, allowDraw: true };
+
+            const section = document.getElementById('playoff-standings-section');
+            const body = document.getElementById('playoff-standings-body');
+            if (!playoff.rounds || playoff.rounds.length === 0) { section.classList.add('hidden'); return; }
+            section.classList.remove('hidden');
+
+            const allMatches = playoff.rounds.flat();
+            const teamNames = (playoff.teams || []).map(q => q.name);
+            const rows = calcStandings(allMatches, teamNames, sportSetting);
+
+            // แสดงผลพร้อมไฮไลท์อันดับ 1–3 สีพิเศษ
+            const podiumColors = ['bg-yellow-100 border-yellow-300','bg-slate-100 border-slate-300','bg-orange-50 border-orange-200'];
+            body.innerHTML = `
+                <!-- โพเดียม top 3 -->
+                <div class="flex justify-center items-end gap-4 mb-6">
+                    ${[1,0,2].map(i => {
+                        const st = rows[i];
+                        if (!st) return '';
+                        const h = [120,150,100][i]; // bar height
+                        const label = ['🥇','🥈','🥉'];
+                        const rank = [2,1,3][i];
+                        return `<div class="flex flex-col items-center gap-1">
+                            <div class="text-2xl">${label[rank-1]}</div>
+                            <div class="font-bold text-sm text-slate-800 max-w-[80px] text-center truncate">${st.name}</div>
+                            <div class="text-xs text-slate-500">${st.points} คะแนน</div>
+                            <div class="w-20 rounded-t-xl flex items-end justify-center pb-2 font-bold text-white text-lg"
+                                 style="height:${h}px;background:${ ['#f59e0b','#94a3b8','#f97316'][rank-1] }">
+                                ${rank}
+                            </div>
+                        </div>`;
+                    }).join('')}
+                </div>
+                ${standingsTableHtml(rows, null)}
+            `;
+        }
+
+        function printPlayoff() {
+            const playoff = appState.playoff || { rounds: [], teams: [] };
+            const t = appState.currentTournament;
+            const sportSetting = appState.sports.find(s => s.id === t.sportType) ||
+                                 { winPoints: 3, drawPoints: 1, losePoints: 0, allowDraw: true };
+            const tName = t.name || 'การแข่งขัน';
+
+            if (!playoff.rounds || playoff.rounds.length === 0) {
+                showToast('ยังไม่มีโปรแกรมรอบสรุป กรุณาสร้างก่อน', 'error'); return;
+            }
+
+            const allMatches = playoff.rounds.flat();
+            const teamNames = (playoff.teams || []).map(q => q.name);
+            const rows = calcStandings(allMatches, teamNames, sportSetting);
+            const tableHtml = buildPrintTable(rows, 'ตารางคะแนนรอบสรุป');
+
+            const schedHtml = playoff.rounds.map((roundMatches, ri) => `
+                <div style="margin-bottom:16px">
+                    <div style="font-weight:700;font-size:14px;margin-bottom:8px;color:#1e3a8a">รอบที่ ${ri+1}</div>
+                    <table style="width:100%;border-collapse:collapse;font-size:13px">
+                        <thead><tr style="background:#f1f5f9">
+                            <th style="padding:6px 10px;border:1px solid #e5e7eb">วันที่</th>
+                            <th style="padding:6px 10px;border:1px solid #e5e7eb">เวลา</th>
+                            <th style="padding:6px 10px;border:1px solid #e5e7eb">ทีมเหย้า</th>
+                            <th style="padding:6px 10px;border:1px solid #e5e7eb">ผล</th>
+                            <th style="padding:6px 10px;border:1px solid #e5e7eb">ทีมเยือน</th>
+                        </tr></thead>
+                        <tbody>
+                            ${roundMatches.map(m => `<tr>
+                                <td style="padding:6px 10px;border:1px solid #e5e7eb;text-align:center">${m.date||'-'}</td>
+                                <td style="padding:6px 10px;border:1px solid #e5e7eb;text-align:center">${m.time||'-'}</td>
+                                <td style="padding:6px 10px;border:1px solid #e5e7eb;font-weight:600">${m.home}</td>
+                                <td style="padding:6px 10px;border:1px solid #e5e7eb;text-align:center;font-weight:700">
+                                    ${m.homeScore !== null && m.awayScore !== null ? m.homeScore+' - '+m.awayScore : 'vs'}
+                                </td>
+                                <td style="padding:6px 10px;border:1px solid #e5e7eb;font-weight:600">${m.away}</td>
+                            </tr>`).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `).join('');
+
+            const win = window.open('', '_blank');
+            win.document.write(`<!DOCTYPE html><html lang="th"><head>
+                <meta charset="UTF-8"><title>รอบสรุป — ${tName}</title>
+                <style>
+                    @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap');
+                    *{box-sizing:border-box;margin:0;padding:0}
+                    body{font-family:'Sarabun',sans-serif;background:#fff;color:#111;padding:20px}
+                    .page-header{text-align:center;border-bottom:3px solid #4f46e5;padding-bottom:12px;margin-bottom:20px}
+                    .page-header h1{font-size:22px;font-weight:700;color:#4f46e5}
+                    .page-header p{font-size:13px;color:#555;margin-top:4px}
+                    .section-title{font-size:16px;font-weight:700;color:#1e3a8a;margin:20px 0 10px;border-left:4px solid #4f46e5;padding-left:10px}
+                    .footer{text-align:center;font-size:11px;color:#aaa;margin-top:20px}
+                    .group-block{margin-bottom:16px}
+                    .group-label{display:inline-block;background:#4f46e5;color:#fff;font-size:13px;font-weight:700;padding:4px 14px;border-radius:20px;margin-bottom:8px}
+                    table{width:100%;border-collapse:collapse;font-size:13px}
+                    thead{background:#f1f5f9}th,td{padding:7px 10px;border:1px solid #e5e7eb;text-align:center}
+                    th{font-weight:700;color:#374151}td:nth-child(2){text-align:left;font-weight:600}
+                    tr:first-child td{background:#fefce8}.pts{background:#eff6ff;font-weight:700;color:#1d4ed8}
+                    @media print{button{display:none}}
+                </style>
+            </head><body>
+                <div class="page-header">
+                    <h1>🏆 ${tName} — รอบสรุป</h1>
+                    <p>${teamNames.length} ทีม | วันที่พิมพ์: ${new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'})}</p>
+                </div>
+                <div class="section-title">📅 โปรแกรมการแข่งขัน</div>
+                ${schedHtml}
+                <div class="section-title">🏅 ตารางคะแนน</div>
+                ${tableHtml}
+                <div class="footer">พิมพ์โดยระบบจัดการแข่งขันกีฬาพบกันหมด</div><br>
+                <div style="text-align:center">
+                    <button onclick="window.print()" style="padding:10px 24px;background:#4f46e5;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer;font-family:Sarabun,sans-serif">🖨️ พิมพ์ / บันทึก PDF</button>
+                </div>
+            </body></html>`);
+            win.document.close();
         }
 
     </script>

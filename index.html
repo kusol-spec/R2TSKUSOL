@@ -521,7 +521,8 @@
                 teams: [],
                 rounds: [],
                 groups: [],   // [{name, teams}]
-                venues: []    // [{id, name}]
+                venues: [],   // [{id, name}]
+                teamLogos: {} // {teamName: base64DataUrl}
             },
             savedTournaments: [],
             config: {
@@ -812,7 +813,13 @@
         function editTeamName(index, newName) {
             newName = newName.trim();
             if (!newName) return;
+            const oldName = appState.currentTournament.teams[index];
             appState.currentTournament.teams[index] = newName;
+            // ย้าย logo key ตามชื่อใหม่
+            if (appState.currentTournament.teamLogos && appState.currentTournament.teamLogos[oldName]) {
+                appState.currentTournament.teamLogos[newName] = appState.currentTournament.teamLogos[oldName];
+                delete appState.currentTournament.teamLogos[oldName];
+            }
             saveStateToLocalStorage();
             renderTeams();
         }
@@ -829,17 +836,46 @@
                 return;
             }
 
+            const logos = appState.currentTournament.teamLogos || {};
             container.innerHTML = teams.map((team, idx) => `
-                <div class="flex items-center justify-between bg-white p-2 rounded-lg border border-slate-200 shadow-sm">
-                    <input type="text" value="${team}" 
+                <div class="flex items-center gap-2 bg-white p-2 rounded-lg border border-slate-200 shadow-sm">
+                    <!-- โลโก้ -->
+                    <label class="cursor-pointer shrink-0" title="คลิกเพื่ออัปโหลดโลโก้">
+                        <input type="file" accept="image/*" class="hidden" onchange="uploadTeamLogo('${team.replace(/'/g,"\'")}', this)">
+                        ${logos[team]
+                            ? `<img src="${logos[team]}" class="w-9 h-9 rounded-full object-cover border-2 border-blue-400">`
+                            : `<div class="w-9 h-9 rounded-full bg-slate-100 border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-400 text-xs hover:border-blue-400 hover:bg-blue-50 transition">
+                                <i data-lucide="image" class="w-4 h-4"></i>
+                               </div>`}
+                    </label>
+                    <!-- ชื่อทีม -->
+                    <input type="text" value="${team}"
                            onchange="editTeamName(${idx}, this.value)"
-                           class="bg-transparent border-b border-transparent hover:border-blue-500 focus:border-blue-500 focus:outline-none px-1 py-0.5 font-medium text-slate-800 w-3/4">
-                    <button onclick="removeTeam(${idx})" class="text-slate-400 hover:text-red-600 p-1">
+                           class="flex-1 bg-transparent border-b border-transparent hover:border-blue-500 focus:border-blue-500 focus:outline-none px-1 py-0.5 font-medium text-slate-800 text-sm min-w-0">
+                    <!-- ลบ -->
+                    <button onclick="removeTeam(${idx})" class="text-slate-400 hover:text-red-600 p-1 shrink-0">
                         <i data-lucide="trash-2" class="w-4 h-4"></i>
                     </button>
                 </div>
             `).join('');
             lucide.createIcons();
+        }
+
+        function uploadTeamLogo(teamName, input) {
+            const file = input.files[0];
+            if (!file) return;
+            if (file.size > 2 * 1024 * 1024) {
+                showToast('ไฟล์ใหญ่เกิน 2MB กรุณาย่อขนาดก่อน', 'error'); return;
+            }
+            const reader = new FileReader();
+            reader.onload = e => {
+                if (!appState.currentTournament.teamLogos) appState.currentTournament.teamLogos = {};
+                appState.currentTournament.teamLogos[teamName] = e.target.result;
+                saveStateToLocalStorage();
+                renderTeams();
+                showToast(`อัปโหลดโลโก้ "${teamName}" เรียบร้อย`, 'success');
+            };
+            reader.readAsDataURL(file);
         }
 
         // ROUND-ROBIN GENERATION ALGORITHM
@@ -972,23 +1008,29 @@
                                 </div>
 
                                 <!-- Match Pairing Display and score input -->
-                                <div class="flex items-center justify-center space-x-4 w-full md:w-2/4">
-                                    <span class="font-semibold text-right w-1/3 truncate text-sm" title="${match.home}">${match.home}</span>
-                                    
+                                <div class="flex items-center justify-center gap-2 w-full md:w-2/4">
+                                    <div class="flex-1 text-right">
+                                        ${appState.currentTournament.teamLogos?.[match.home]
+                                            ? `<img src="${appState.currentTournament.teamLogos[match.home]}" class="w-7 h-7 rounded-full object-cover inline-block mr-1 align-middle border border-slate-200">`
+                                            : ''}
+                                        <span class="font-semibold text-sm leading-tight">${match.home}</span>
+                                    </div>
                                     <!-- Scores Inputs -->
-                                    <div class="flex items-center space-x-2">
+                                    <div class="flex items-center gap-1 shrink-0">
                                         <input type="number" min="0" placeholder="-" value="${match.homeScore !== null ? match.homeScore : ''}"
                                                onchange="updateMatchScore('${match.id}', 'home', this.value)"
                                                class="w-12 h-10 border border-slate-300 rounded-lg text-center font-bold text-lg bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500">
-                                        
                                         <span class="text-slate-400 font-bold text-xs">VS</span>
-                                        
                                         <input type="number" min="0" placeholder="-" value="${match.awayScore !== null ? match.awayScore : ''}"
                                                onchange="updateMatchScore('${match.id}', 'away', this.value)"
                                                class="w-12 h-10 border border-slate-300 rounded-lg text-center font-bold text-lg bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500">
                                     </div>
-
-                                    <span class="font-semibold text-left w-1/3 truncate text-sm" title="${match.away}">${match.away}</span>
+                                    <div class="flex-1 text-left">
+                                        ${appState.currentTournament.teamLogos?.[match.away]
+                                            ? `<img src="${appState.currentTournament.teamLogos[match.away]}" class="w-7 h-7 rounded-full object-cover inline-block mr-1 align-middle border border-slate-200">`
+                                            : ''}
+                                        <span class="font-semibold text-sm leading-tight">${match.away}</span>
+                                    </div>
                                 </div>
 
                                 <!-- Action Buttons -->
@@ -1129,7 +1171,7 @@
 
         // ── HTML ตารางคะแนน ────────────────────────────────────────────────────
         function standingsTableHtml(rows, label) {
-            const hasGoals = rows.some(r => r.goalsFor > 0 || r.goalsAgainst > 0 || r.played > 0);
+            const logos = appState.currentTournament.teamLogos || {};
             return `
             <div>
                 ${label ? `<div class="flex items-center gap-2 mb-2">
@@ -1145,7 +1187,9 @@
                             <th class="py-2 px-3 text-center text-emerald-700">ชนะ</th>
                             <th class="py-2 px-3 text-center text-amber-600">เสมอ</th>
                             <th class="py-2 px-3 text-center text-rose-600">แพ้</th>
-                            ${hasGoals ? '<th class="py-2 px-3 text-center">ได้</th><th class="py-2 px-3 text-center">เสีย</th><th class="py-2 px-3 text-center">+/-</th>' : ''}
+                            <th class="py-2 px-3 text-center text-blue-600">ได้</th>
+                            <th class="py-2 px-3 text-center text-orange-500">เสีย</th>
+                            <th class="py-2 px-3 text-center">+/-</th>
                             <th class="py-2 px-3 text-center text-blue-800 bg-blue-50 font-bold">คะแนน</th>
                         </tr>
                     </thead>
@@ -1153,14 +1197,22 @@
                         ${rows.map((st, idx) => {
                             const gd = st.goalsFor - st.goalsAgainst;
                             const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : idx + 1;
+                            const logo = logos[st.name];
                             return `<tr class="${idx === 0 ? 'bg-yellow-50/60' : 'hover:bg-slate-50'} transition">
                                 <td class="py-2 px-3 font-bold text-center text-slate-500">${medal}</td>
-                                <td class="py-2 px-4 font-semibold text-slate-900">${st.name}</td>
+                                <td class="py-2 px-4 font-semibold text-slate-900">
+                                    <div class="flex items-center gap-2">
+                                        ${logo ? `<img src="${logo}" class="w-6 h-6 rounded-full object-cover border border-slate-200 shrink-0">` : ''}
+                                        <span>${st.name}</span>
+                                    </div>
+                                </td>
                                 <td class="py-2 px-3 text-center">${st.played}</td>
                                 <td class="py-2 px-3 text-center text-emerald-600 font-semibold">${st.won}</td>
                                 <td class="py-2 px-3 text-center text-amber-600">${st.drawn}</td>
                                 <td class="py-2 px-3 text-center text-rose-600">${st.lost}</td>
-                                ${hasGoals ? `<td class="py-2 px-3 text-center">${st.goalsFor}</td><td class="py-2 px-3 text-center">${st.goalsAgainst}</td><td class="py-2 px-3 text-center font-medium ${gd > 0 ? 'text-emerald-600' : gd < 0 ? 'text-rose-600' : ''}">${gd > 0 ? '+' : ''}${gd}</td>` : ''}
+                                <td class="py-2 px-3 text-center text-blue-600 font-medium">${st.goalsFor}</td>
+                                <td class="py-2 px-3 text-center text-orange-500 font-medium">${st.goalsAgainst}</td>
+                                <td class="py-2 px-3 text-center font-semibold ${gd > 0 ? 'text-emerald-600' : gd < 0 ? 'text-rose-600' : 'text-slate-500'}">${gd > 0 ? '+' : ''}${gd}</td>
                                 <td class="py-2 px-3 text-center text-lg font-bold text-blue-800 bg-blue-50/50">${st.points}</td>
                             </tr>`;
                         }).join('')}
@@ -2084,9 +2136,14 @@
                                            onchange="updatePlayoffMatchMeta('${match.id}', 'time', this.value)"
                                            class="px-2 py-1 bg-slate-50 border rounded-md focus:outline-none w-full max-w-[100px]">
                                 </div>
-                                <div class="flex items-center justify-center space-x-4 w-full md:w-2/4">
-                                    <span class="font-semibold text-right w-1/3 truncate text-sm">${match.home}</span>
-                                    <div class="flex items-center space-x-2">
+                                <div class="flex items-center justify-center gap-2 w-full md:w-2/4">
+                                    <div class="flex-1 text-right">
+                                        ${appState.currentTournament.teamLogos?.[match.home]
+                                            ? `<img src="${appState.currentTournament.teamLogos[match.home]}" class="w-7 h-7 rounded-full object-cover inline-block mr-1 align-middle border border-slate-200">`
+                                            : ''}
+                                        <span class="font-semibold text-sm leading-tight">${match.home}</span>
+                                    </div>
+                                    <div class="flex items-center gap-1 shrink-0">
                                         <input type="number" min="0" placeholder="-" value="${match.homeScore !== null ? match.homeScore : ''}"
                                                onchange="updatePlayoffScore('${match.id}', 'home', this.value)"
                                                class="w-12 h-10 border border-slate-300 rounded-lg text-center font-bold text-lg bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500">
@@ -2095,7 +2152,12 @@
                                                onchange="updatePlayoffScore('${match.id}', 'away', this.value)"
                                                class="w-12 h-10 border border-slate-300 rounded-lg text-center font-bold text-lg bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500">
                                     </div>
-                                    <span class="font-semibold text-left w-1/3 truncate text-sm">${match.away}</span>
+                                    <div class="flex-1 text-left">
+                                        ${appState.currentTournament.teamLogos?.[match.away]
+                                            ? `<img src="${appState.currentTournament.teamLogos[match.away]}" class="w-7 h-7 rounded-full object-cover inline-block mr-1 align-middle border border-slate-200">`
+                                            : ''}
+                                        <span class="font-semibold text-sm leading-tight">${match.away}</span>
+                                    </div>
                                 </div>
                                 <div class="w-full md:w-1/4"></div>
                             </div>

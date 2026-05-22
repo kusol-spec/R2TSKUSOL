@@ -356,7 +356,10 @@
             <div class="bg-white rounded-xl shadow-sm p-4 border border-slate-200 flex flex-wrap gap-3 items-center justify-between no-print">
                 <div class="flex items-center gap-2">
                     <i data-lucide="layers" class="text-blue-600 w-5 h-5"></i>
-                    <h2 class="text-lg font-bold text-slate-900">ระบบแบ่งสายและสนามแข่งขัน</h2>
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-900">แบ่งสายและสนามแข่งขัน</h2>
+                        <p class="text-xs text-slate-500 mt-0.5">รายการ: <span id="groups-tab-tournament-name" class="font-semibold text-indigo-600">—</span></p>
+                    </div>
                 </div>
                 <div class="flex flex-wrap gap-2">
                     <div class="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
@@ -405,12 +408,14 @@
                     </button>
                 </div>
 
-                <!-- ── ขวา: จัดสนาม ── -->
+                <!-- ── ขวา: จัดสนาม (1 สนาม/รอบ) ── -->
                 <div class="bg-white rounded-xl shadow-sm p-6 border border-slate-200 space-y-4">
                     <h2 class="text-lg font-bold text-slate-900 border-b pb-2 flex items-center gap-2">
                         <i data-lucide="map-pin" class="text-rose-500"></i> จัดการสนามแข่งขัน
                     </h2>
-                    <p class="text-sm text-slate-500">เพิ่มสนามแล้วกำหนดให้แต่ละคู่การแข่งขันในโปรแกรมหลัก</p>
+                    <p class="text-sm text-slate-500">เพิ่มสนาม แล้วกำหนด <strong>1 สนามต่อรอบ</strong> — ทุกคู่ในรอบนั้นจะใช้สนามเดียวกัน</p>
+
+                    <!-- เพิ่มสนาม -->
                     <div class="flex gap-2">
                         <input type="text" id="new-venue-name" placeholder="ชื่อสนาม เช่น สนาม 1, สนามกลาง"
                                class="flex-grow px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-rose-400"
@@ -419,16 +424,20 @@
                             <i data-lucide="plus" class="w-4 h-4"></i> เพิ่มสนาม
                         </button>
                     </div>
-                    <div id="venues-list" class="space-y-2 max-h-48 overflow-y-auto">
+                    <div id="venues-list" class="space-y-2 max-h-40 overflow-y-auto">
                         <p class="text-slate-400 text-xs text-center py-4">ยังไม่มีสนาม</p>
                     </div>
+
                     <hr class="border-slate-200">
+
+                    <!-- กำหนดสนามต่อรอบ -->
                     <div>
-                        <h3 class="font-semibold text-slate-700 mb-3 flex items-center gap-2">
-                            <i data-lucide="calendar-check" class="w-4 h-4 text-indigo-500"></i> กำหนดสนามให้คู่การแข่งขัน
+                        <h3 class="font-semibold text-slate-700 mb-3 flex items-center gap-2 text-sm">
+                            <i data-lucide="calendar-check" class="w-4 h-4 text-indigo-500"></i>
+                            กำหนดสนามแต่ละรอบ <span class="text-xs text-slate-400 font-normal">(ทุกคู่ในรอบใช้สนามนี้)</span>
                         </h3>
-                        <div id="venue-assign-list" class="space-y-2 max-h-96 overflow-y-auto">
-                            <p class="text-slate-400 text-xs text-center py-4">สร้างโปรแกรมแข่งขันก่อนเพื่อกำหนดสนาม</p>
+                        <div id="venue-assign-list" class="space-y-2 max-h-80 overflow-y-auto">
+                            <p class="text-slate-400 text-xs text-center py-4">สร้างโปรแกรมก่อนเพื่อกำหนดสนาม</p>
                         </div>
                     </div>
                 </div>
@@ -565,6 +574,15 @@
             if (activeBtn) {
                 activeBtn.classList.add('bg-white/20', 'text-white');
                 activeBtn.classList.remove('text-indigo-100');
+            }
+
+            // เมื่อเปิดแท็บ groups — แสดงชื่อรายการปัจจุบัน และ re-render
+            if (tabId === 'groups') {
+                const lbl = document.getElementById('groups-tab-tournament-name');
+                if (lbl) lbl.textContent = appState.currentTournament.name || '(ยังไม่ได้ตั้งชื่อ)';
+                renderGroupsList();
+                renderVenuesList();
+                renderVenueAssignList();
             }
         }
 
@@ -1873,13 +1891,26 @@
         }
 
         function assignVenue(matchId, vid) {
+            // compat: กำหนดสนามให้ match เดิม (ใช้ใน playoff ถ้าจำเป็น)
             for (const round of appState.currentTournament.rounds) {
                 for (const match of round) {
                     if (match.id === matchId) { match.venue = vid; break; }
                 }
             }
             saveStateToLocalStorage();
-            renderRounds(); // อัปเดตโปรแกรมหลักให้แสดงสนาม
+            renderRounds();
+        }
+
+        function assignRoundVenue(roundIndex, vid) {
+            // กำหนดสนามให้ทุก match ในรอบนั้นพร้อมกัน
+            const rounds = appState.currentTournament.rounds;
+            if (!rounds[roundIndex]) return;
+            for (const match of rounds[roundIndex]) {
+                match.venue = vid;
+            }
+            saveStateToLocalStorage();
+            renderRounds();
+            renderVenueAssignList();
         }
 
         function renderVenueAssignList() {
@@ -1896,26 +1927,29 @@
                 return;
             }
 
-            const venueOptions = venues.map(v => `<option value="${v.id}">${v.name}</option>`).join('');
+            const venueOptions = '<option value="">-- ไม่กำหนด --</option>' +
+                venues.map(v => `<option value="${v.id}">${v.name}</option>`).join('');
 
-            container.innerHTML = rounds.map((round, ri) =>
-                round.map(match => {
-                    const venueName = venues.find(v => v.id === match.venue)?.name || '';
-                    return `
-                    <div class="flex items-center justify-between gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm">
-                        <div class="flex-1 min-w-0">
-                            ${match.group ? `<span class="text-xs text-blue-600 font-semibold">[${match.group}]</span> ` : ''}
-                            <span class="font-medium truncate">${match.home} <span class="text-slate-400">vs</span> ${match.away}</span>
-                            ${venueName ? `<span class="ml-1 text-xs text-rose-500">(${venueName})</span>` : ''}
+            // กำหนด 1 สนาม/รอบ — ดึง venue จาก match แรกของรอบ
+            container.innerHTML = rounds.map((round, ri) => {
+                const roundVenue = round[0]?.venue || '';
+                const venueName = venues.find(v => v.id === roundVenue)?.name || '';
+                const matchSummary = round.map(m => `${m.home} vs ${m.away}`).join(', ');
+                return `
+                <div class="border border-slate-200 rounded-xl p-3 bg-slate-50 space-y-2">
+                    <div class="flex items-center justify-between gap-2">
+                        <div>
+                            <span class="text-xs font-bold text-indigo-700">รอบที่ ${ri + 1}</span>
+                            ${venueName ? `<span class="ml-2 text-xs text-rose-500 font-medium">📍 ${venueName}</span>` : ''}
                         </div>
-                        <select onchange="assignVenue('${match.id}', this.value)"
-                                class="text-xs border border-slate-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-rose-400 bg-white">
-                            <option value="">-- เลือกสนาม --</option>
-                            ${venueOptions}
+                        <select onchange="assignRoundVenue(${ri}, this.value)"
+                                class="text-xs border border-rose-300 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-rose-400 bg-white font-medium">
+                            ${venueOptions.replace(`value="${roundVenue}"`, `value="${roundVenue}" selected`)}
                         </select>
-                    </div>`;
-                }).join('')
-            ).join('');
+                    </div>
+                    <p class="text-xs text-slate-400 leading-relaxed">${matchSummary}</p>
+                </div>`;
+            }).join('');
         }
 
         // เพิ่มการแสดงสนามในโปรแกรมหลัก (patch renderRounds)
